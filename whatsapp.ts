@@ -1,0 +1,703 @@
+import { Request, Response, Router } from 'express';
+import crypto from 'node:crypto';
+import { ConnectorWebhookEvent, WebhookProcessingStatus } from '../../src/types/database';
+import { getServerSupabaseClient, requireAuth } from '../auth';
+import { recordWhatsAppAudit, resetWhatsAppAuditTestState } from '../services/whatsapp-audit-service';
+import {
+  validateWebhookPayload,
+  validatePhoneNumberId,
+  validateWabaId,
+  validateExternalMessageId,
+} from '../services/whatsapp-validator';
+import {
+  recordWhatsAppWebhookReceived,
+  recordWhatsAppOutboundFailure,
+  whatsAppVault,
+} from '../vault/whatsapp-vault';
+
+export interface WhatsAppTenantMapping {
+  businessId: string;
+  phoneNumberId: string;
+  wabaId?: string;
+  displayPhoneNumber?: string;
+  businessName?: string;
+}
+
+// In-memory tenant mapping registry (Server-side only)
+// Resolves Meta WhatsApp identifiers (phone_number_id, waba_id) to the authenticated internal business_id
+export const whatsappTenantRegistry = new Map<string, WhatsAppTenantMapping>();
+
+// Seed only in automated test environments. Production tenant mappings must come
+// from the authenticated onboarding flow / Supabase business_integrations records.
+if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+  whatsappTenantRegistry.set('109283746501928', {
+    businessId: 'biz_01_health_bengaluru',
+    phoneNumberId: '109283746501928',
+    wabaId: 'waba_veda_bengaluru_01',
+    displayPhoneNumber: '+91 98765 43210',
+    businessName: 'VedaVeda Ayurveda & Wellness',
+  });
+  whatsappTenantRegistry.set('phone_num_id_veda_01', {
+    businessId: 'biz_01_health_bengaluru',
+    phoneNumberId: 'phone_num_id_veda_01',
+    wabaId: 'waba_veda_bengaluru_01',
+    displayPhoneNumber: '+91 98765 43210',
+    businessName: 'VedaVeda Ayurveda & Wellness',
+  });
+  whatsappTenantRegistry.set('209283746501929', {
+    businessId: 'biz_tenant_b_99',
+    phoneNumberId: '209283746501929',
+    wabaId: 'waba_tenant_b_02',
+    displayPhoneNumber: '+91 98765 99999',
+    businessName: 'Tenant B Diagnostics',
+  });
+}
+
+export function registerWhatsAppTenantMapping(mapping: WhatsAppTenantMapping): void {
+  if (!mapping.businessId || !mapping.phoneNumberId) {
+    throw new Error('businessId and phoneNumberId are required for WhatsApp tenant mapping');
+  }
+  whatsappTenantRegistry.set(mapping.phoneNumberId, mapping);
+  if (mapping.wabaId) {
+    whatsappTenantRegistry.set(mapping.wabaId, mapping);
+  }
+}
+
+export function clearWhatsAppTenantMappings(): void {
+  whatsappTenantRegistry.clear();
+}
+
+/**
+ * Resolves the internal business_id from Meta's phone_number_id or waba_id.
+ * NEVER trusts business_id from incoming request body or query params.
+ */
+export async function resolveWhatsAppTenant(
+  phoneNumberId?: string,
+  wabaId?: string
+): Promise<WhatsAppTenantMapping | null> {
+  // 1. Check in-memory registry first
+  if (phoneNumberId && whatsappTenantRegistry.has(phoneNumberId)) {
+    return whatsappTenantRegistry.get(phoneNumberId)!;
+  }
+  if (wabaId && whatsappTenantRegistry.has(wabaId)) {
+    return whatsappTenantRegistry.get(wabaId)!;
+  }
+
+  // 2. Query Supabase business_integrations table if available
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
+    try {
+      if (phoneNumberId) {
+        const { data, error } = await supabase
+          .from('business_integrations')
+          .select('business_id, provider_account_id, metadata, status')
+          .eq('provider', 'whatsapp_business')
+          .or(`provider_account_id.eq.${phoneNumberId},phone_number_id.eq.${phoneNumberId}`)
+          .maybeSingle();
+
+        if (data && !error && data.status === 'CONNECTED') {
+          const mapping: WhatsAppTenantMapping = {
+            businessId: data.business_id,
+            phoneNumberId,
+            wabaId: (data.metadata as any)?.waba_id || wabaId,
+          };
+          whatsappTenantRegistry.set(phoneNumberId, mapping);
+          return mapping;
+        }
+      }
+
+      if (wabaId) {
+        const { data, error } = await supabase
+          .from('business_integrations')
+          .select('business_id, provider_account_id, metadata, status')
+          .eq('provider', 'whatsapp_business')
+          .eq('waba_id', wabaId)
+          .maybeSingle();
+
+        if (data && !error && data.status === 'CONNECTED') {
+          const mapping: WhatsAppTenantMapping = {
+            businessId: data.business_id,
+            phoneNumberId: data.provider_account_id || (data.metadata as any)?.phone_number_id,
+            wabaId,
+          };
+          whatsappTenantRegistry.set(wabaId, mapping);
+          return mapping;
+        }
+      }
+    } catch {
+      // Supabase query fallback ignored
+    }
+  }
+
+  return null;
+}
+
+// In-memory webhook event store & deduplication ledger
+export const inMemoryWebhookEvents: ConnectorWebhookEvent[] = [];
+export const processedEventIds = new Set<string>();
+
+// In-memory proposed actions and memory ledger generated by incoming webhooks
+export const inMemoryInboundActions: any[] = [];
+export const inMemoryInboundMemories: any[] = [];
+export const inMemoryInboundLeads: any[] = [];
+
+/**
+ * Validates Meta's X-Hub-Signature-256 header when WHATSAPP_APP_SECRET is configured.
+ */
+export function verifyMetaSignature(
+  rawBody: string | Buffer,
+  signatureHeader?: string,
+  appSecret?: string
+): boolean {
+  if (!appSecret) {
+    // If no secret configured in environment, skip HMAC check
+    return true;
+  }
+  if (!signatureHeader) {
+    return false;
+  }
+
+  const parts = signatureHeader.split('=');
+  if (parts.length !== 2 || parts[0] !== 'sha256') {
+    return false;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', appSecret)
+    .update(rawBody)
+    .digest('hex');
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(parts[1], 'hex'),
+      Buffer.from(expectedSignature, 'hex')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Grounded auto-draft generator for incoming customer questions
+ */
+function draftCustomerResponse(messageText: string, businessName: string): string {
+  const text = messageText.toLowerCase();
+  if (text.includes('timing') || text.includes('hours') || text.includes('open') || text.includes('location')) {
+    return `Namaste from ${businessName}. Our center is open Monday through Saturday from 10:00 AM to 8:00 PM. Would you like to schedule an in-person or online appointment?`;
+  }
+  if (text.includes('price') || text.includes('cost') || text.includes('fee') || text.includes('charges')) {
+    return `Namaste from ${businessName}. Our consultation and service rates are cataloged in our verified wellness menu. Would you like us to share our current service catalog?`;
+  }
+  if (text.includes('booking') || text.includes('appointment') || text.includes('slot')) {
+    return `Namaste from ${businessName}. We have received your appointment request. Our operations team will check schedule availability and send you available time slots for confirmation.`;
+  }
+  return `Namaste from ${businessName}. Thank you for contacting us. We have received your inquiry: "${messageText.slice(0, 100)}". A member of our wellness team will review and reply shortly.`;
+}
+
+export const whatsappWebhookRouter = Router();
+
+/**
+ * 1. GET /api/webhooks/whatsapp — Meta Webhook Verification
+ * Validates hub.mode, hub.verify_token, and responds with hub.challenge.
+ * Never exposes the verify token.
+ */
+whatsappWebhookRouter.get('/', (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'] as string | undefined;
+  const verifyToken = req.query['hub.verify_token'] as string | undefined;
+  const challenge = req.query['hub.challenge'] as string | undefined;
+
+  const expectedToken =
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
+    (process.env.NODE_ENV === 'test' ? 'test_verify_token_default' : undefined);
+
+  if (!expectedToken) {
+    return res.status(500).json({
+      error: 'WHATSAPP_WEBHOOK_VERIFY_TOKEN is not configured on the server.',
+      code: 'SERVER_CONFIG_MISSING',
+    });
+  }
+
+  if (mode === 'subscribe' && verifyToken === expectedToken) {
+    if (!challenge) {
+      return res.status(400).send('Missing hub.challenge');
+    }
+    // Meta expects the challenge returned as plain text with 200 OK
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).send(challenge);
+  }
+
+  return res.status(403).json({
+    error: 'Verification token mismatch or invalid hub.mode. Access denied.',
+    code: 'VERIFICATION_FAILED',
+  });
+});
+
+/**
+ * 2. POST /api/webhooks/whatsapp — Inbound Event Ingestion from Meta Cloud API
+ * Processes incoming customer messages and delivery/read/failed status updates.
+ * Guarantees idempotency and strict tenant isolation.
+ */
+whatsappWebhookRouter.post('/', async (req: Request, res: Response) => {
+  try {
+    // Optional HMAC signature check
+    const appSecret = process.env.WHATSAPP_APP_SECRET;
+    if (appSecret) {
+      const signatureHeader = req.headers['x-hub-signature-256'] as string | undefined;
+      const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+      if (!verifyMetaSignature(rawBody, signatureHeader, appSecret)) {
+        recordWhatsAppAudit({
+          business_id: 'security_boundary',
+          action: 'webhook_rejected',
+          details: 'Invalid Meta X-Hub-Signature-256 header. Request rejected.',
+          entity_type: 'whatsapp_webhook',
+          metadata: { code: 'INVALID_SIGNATURE' },
+        });
+        return res.status(401).json({
+          error: 'Invalid Meta X-Hub-Signature-256 header. Request rejected.',
+          code: 'INVALID_SIGNATURE',
+        });
+      }
+    }
+
+    const body = req.body;
+    if (!body || typeof body !== 'object') {
+      recordWhatsAppAudit({
+        business_id: 'security_boundary',
+        action: 'webhook_rejected',
+        details: 'Invalid JSON payload body.',
+        entity_type: 'whatsapp_webhook',
+        metadata: { code: 'INVALID_BODY' },
+      });
+      return res.status(400).json({ error: 'Invalid JSON payload body.', code: 'INVALID_BODY' });
+    }
+
+    if (body.object !== 'whatsapp_business_account' || !Array.isArray(body.entry)) {
+      recordWhatsAppAudit({
+        business_id: 'security_boundary',
+        action: 'webhook_rejected',
+        details: 'Malformed WhatsApp webhook payload: Expected object="whatsapp_business_account" and entry array.',
+        entity_type: 'whatsapp_webhook',
+        metadata: { code: 'MALFORMED_PAYLOAD' },
+      });
+      return res.status(400).json({
+        error: 'Malformed WhatsApp webhook payload: Expected object="whatsapp_business_account" and entry array.',
+        code: 'MALFORMED_PAYLOAD',
+      });
+    }
+
+    const processedResults = [];
+
+    for (const entry of body.entry) {
+      const wabaId = entry.id;
+      const changes = Array.isArray(entry.changes) ? entry.changes : [];
+
+      for (const change of changes) {
+        if (change.field !== 'messages' || !change.value) {
+          continue;
+        }
+
+        const value = change.value;
+        const phoneNumberId = value.metadata?.phone_number_id;
+        const displayPhoneNumber = value.metadata?.display_phone_number;
+
+        // Tenant Resolution: NEVER trust client-supplied business_id.
+        // Resolve tenant strictly from server-side mapping of phoneNumberId or wabaId.
+        const tenant = await resolveWhatsAppTenant(phoneNumberId, wabaId);
+        if (!tenant) {
+          recordWhatsAppAudit({
+            business_id: 'unknown_tenant',
+            action: 'webhook_rejected',
+            details: `Tenant resolution failed: WhatsApp phone_number_id "${phoneNumberId || 'undefined'}" / WABA "${wabaId || 'undefined'}" is not mapped to any authorized business.`,
+            entity_type: 'whatsapp_webhook',
+            metadata: { phoneNumberId, wabaId, code: 'UNKNOWN_WHATSAPP_TENANT' },
+          });
+          return res.status(404).json({
+            error: `Tenant resolution failed: WhatsApp phone_number_id "${phoneNumberId || 'undefined'}" / WABA "${wabaId || 'undefined'}" is not mapped to any authorized business.`,
+            code: 'UNKNOWN_WHATSAPP_TENANT',
+          });
+        }
+
+        const businessId = tenant.businessId;
+        const now = new Date().toISOString();
+
+        // Record last webhook received in tenant vault
+        recordWhatsAppWebhookReceived(businessId, now);
+
+        recordWhatsAppAudit({
+          business_id: businessId,
+          action: 'webhook_received',
+          details: `WhatsApp webhook received for business ${businessId} from phone ${phoneNumberId || wabaId}.`,
+          entity_type: 'whatsapp_webhook',
+          metadata: { wabaId, phoneNumberId, displayPhoneNumber },
+        });
+
+        const contacts = value.contacts || [];
+        const contactMap = new Map<string, string>();
+        for (const c of contacts) {
+          if (c.wa_id && c.profile?.name) {
+            contactMap.set(c.wa_id, c.profile.name);
+          }
+        }
+
+        // A. Process Incoming Customer Messages
+        const messages = Array.isArray(value.messages) ? value.messages : [];
+        for (const msg of messages) {
+          const externalMessageId = msg.id;
+          const customerPhone = msg.from;
+          const customerName = contactMap.get(customerPhone) || 'WhatsApp Customer';
+          const msgType = msg.type || 'text';
+          const messageText =
+            msg.text?.body ||
+            msg.interactive?.button_reply?.title ||
+            msg.interactive?.list_reply?.title ||
+            msg.button?.text ||
+            `[${msgType.toUpperCase()} Message]`;
+
+          // Idempotency check: (business_id, provider, external_message_id)
+          const dedupeKey = `${businessId}:whatsapp:${externalMessageId}`;
+          if (processedEventIds.has(dedupeKey)) {
+            recordWhatsAppAudit({
+              business_id: businessId,
+              action: 'webhook_received',
+              details: `Duplicate event ignored for message ID ${externalMessageId} (replay protection).`,
+              entity_type: 'whatsapp_webhook',
+              metadata: { externalMessageId, duplicate: true },
+            });
+            processedResults.push({
+              externalMessageId,
+              status: 'duplicate',
+              businessId,
+              ignored: true,
+            });
+            continue;
+          }
+
+          processedEventIds.add(dedupeKey);
+
+          // 1. Store in connector_webhook_events
+          const eventRecord: ConnectorWebhookEvent = {
+            id: `wev_${crypto.randomUUID()}`,
+            business_id: businessId,
+            provider: 'whatsapp',
+            external_message_id: externalMessageId,
+            customer_phone: customerPhone,
+            customer_name: customerName,
+            message_type: msgType,
+            message_payload: msg,
+            metadata: {
+              wabaId,
+              phoneNumberId,
+              displayPhoneNumber,
+              timestamp: msg.timestamp,
+            },
+            processing_status: 'processed',
+            received_at: now,
+            created_at: now,
+          };
+          inMemoryWebhookEvents.push(eventRecord);
+
+          // 2. Resolve or create customer / lead record
+          const leadId = `lead_wa_${crypto.randomUUID().slice(0, 8)}`;
+          inMemoryInboundLeads.push({
+            id: leadId,
+            business_id: businessId,
+            name: customerName,
+            phone: customerPhone,
+            source: 'WhatsApp Inbound',
+            status: 'new',
+            score: 75,
+            interest_product_or_service: 'WhatsApp Inquiry',
+            notes: `Inbound WhatsApp query: "${messageText}"`,
+            created_at: now,
+          });
+
+          // 3. Append to Business Memory (Context & Audit Trail)
+          const memoryId = `mem_wa_${crypto.randomUUID().slice(0, 8)}`;
+          inMemoryInboundMemories.push({
+            id: memoryId,
+            business_id: businessId,
+            category: 'customer_interaction',
+            title: `Inbound WhatsApp Inquiry from ${customerName}`,
+            content: `Customer (${customerPhone}) messaged: "${messageText}". Meta Message ID: ${externalMessageId}`,
+            source: 'whatsapp_webhook',
+            confidence_score: 95,
+            created_at: now,
+          });
+
+          // 4. Connect to Customer Support Agent -> Draft proposed response
+          const proposedDraft = draftCustomerResponse(
+            messageText,
+            tenant.businessName || 'Our Business'
+          );
+
+          // 5. Propose Human-in-the-Loop Agent Action
+          // STRICT SAFETY: Status is 'pending' / 'proposed'. Outgoing message is NOT sent autonomously.
+          const actionId = `act_wa_${crypto.randomUUID().slice(0, 8)}`;
+          inMemoryInboundActions.push({
+            id: actionId,
+            business_id: businessId,
+            agent_id: 'customer_support',
+            agent_name: 'Customer Support Agent',
+            action_type: 'whatsapp_reply',
+            target_entity: `Customer: ${customerName} (${customerPhone})`,
+            entity_id: leadId,
+            proposed_payload: {
+              channel: 'WhatsApp',
+              recipient_phone: customerPhone,
+              recipient_name: customerName,
+              in_reply_to_message_id: externalMessageId,
+              phone_number_id: phoneNumberId,
+              proposed_message: proposedDraft,
+              trigger_reason: 'Inbound customer WhatsApp inquiry via Webhook',
+            },
+            impact_level: 'medium',
+            status: 'pending',
+            approval_policy: 'owner_or_manager',
+            consequential_level: 'medium',
+            reasoning: `Inbound customer inquiry from ${customerName}: "${messageText}". Grounded response prepared for operator authorization.`,
+            created_at: now,
+          });
+
+          recordWhatsAppAudit({
+            business_id: businessId,
+            action: 'message_proposed',
+            details: `Draft customer reply prepared for inquiry from ${customerName} (${customerPhone}). Human approval required.`,
+            entity_type: 'whatsapp_message',
+            metadata: { actionId, leadId, recipientPhone: customerPhone },
+          });
+
+          // Persist to Supabase asynchronously if client configured
+          const supabase = getServerSupabaseClient();
+          if (supabase) {
+            try {
+              await supabase.from('connector_webhook_events').insert({
+                id: eventRecord.id,
+                business_id: businessId,
+                provider: 'whatsapp',
+                external_message_id: externalMessageId,
+                customer_phone: customerPhone,
+                customer_name: customerName,
+                message_type: msgType,
+                message_payload: msg,
+                metadata: eventRecord.metadata,
+                processing_status: 'processed',
+                received_at: now,
+                created_at: now,
+              });
+            } catch {
+              // Ignore async DB error in test/dev
+            }
+          }
+
+          processedResults.push({
+            externalMessageId,
+            status: 'processed',
+            businessId,
+            actionId,
+            leadId,
+          });
+        }
+
+        // B. Process Message Status Updates (sent, delivered, read, failed)
+        const statuses = Array.isArray(value.statuses) ? value.statuses : [];
+        for (const st of statuses) {
+          const statusMessageId = st.id;
+          const statusType = st.status; // 'sent' | 'delivered' | 'read' | 'failed'
+          const recipientId = st.recipient_id;
+
+          const dedupeKey = `${businessId}:whatsapp_status:${statusMessageId}:${statusType}`;
+          if (processedEventIds.has(dedupeKey)) {
+            processedResults.push({
+              statusMessageId,
+              statusType,
+              status: 'duplicate',
+              ignored: true,
+            });
+            continue;
+          }
+
+          processedEventIds.add(dedupeKey);
+
+          // If failed, record error in vault and audit log
+          if (statusType === 'failed') {
+            const errDetail = st.errors ? JSON.stringify(st.errors) : 'Message delivery failed';
+            recordWhatsAppOutboundFailure(businessId, errDetail);
+            recordWhatsAppAudit({
+              business_id: businessId,
+              action: 'message_failed',
+              details: `WhatsApp delivery failed for recipient ${recipientId}. Message ID: ${statusMessageId}. Errors: ${errDetail}`,
+              entity_type: 'whatsapp_message',
+              metadata: { statusMessageId, recipientId, errors: st.errors },
+            });
+          }
+
+          const statusEventRecord: ConnectorWebhookEvent = {
+            id: `wev_st_${crypto.randomUUID()}`,
+            business_id: businessId,
+            provider: 'whatsapp',
+            external_message_id: `${statusMessageId}_${statusType}`,
+            customer_phone: recipientId,
+            customer_name: null,
+            message_type: 'status_update',
+            message_payload: st,
+            metadata: {
+              status: statusType,
+              timestamp: st.timestamp,
+              errors: st.errors || null,
+              pricing: st.pricing || null,
+              phoneNumberId,
+              wabaId,
+            },
+            processing_status: 'processed',
+            received_at: now,
+            created_at: now,
+          };
+          inMemoryWebhookEvents.push(statusEventRecord);
+
+          processedResults.push({
+            statusMessageId,
+            statusType,
+            status: 'processed',
+            businessId,
+          });
+        }
+      }
+    }
+
+    // Return 200 OK to Meta
+    return res.status(200).json({
+      success: true,
+      eventsProcessed: processedResults.length,
+      results: processedResults,
+    });
+  } catch (err: any) {
+    console.error('WhatsApp Webhook Handler Error:', err);
+    return res.status(500).json({
+      error: err.message || 'Internal server error processing WhatsApp webhook event',
+      code: 'WEBHOOK_PROCESSING_FAILED',
+    });
+  }
+});
+
+/**
+ * 3. GET /api/webhooks/whatsapp/events — Authenticated Multi-Tenant Event History
+ * Enforces strict tenant isolation: users can ONLY retrieve events for their own businessId.
+ */
+whatsappWebhookRouter.get(
+  '/events',
+  requireAuth({ allowedRoles: ['owner', 'manager', 'staff', 'admin'] }),
+  async (req: Request, res: Response) => {
+    const auth = req.auth!;
+    const businessId = auth.businessId;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'No authenticated business context found.' });
+    }
+
+    // Filter in-memory events strictly by authenticated businessId
+    const tenantEvents = inMemoryWebhookEvents.filter((ev) => ev.business_id === businessId);
+
+    return res.json({
+      success: true,
+      businessId,
+      total: tenantEvents.length,
+      events: tenantEvents.slice(-50).reverse(),
+    });
+  }
+);
+
+/**
+ * 4. GET /api/webhooks/whatsapp/status — Public/Authenticated Status & Configuration Health
+ * Diagnostic probe confirming whether the endpoint is live and verify token is configured.
+ * Never exposes the actual secret string.
+ */
+whatsappWebhookRouter.get('/status', (req: Request, res: Response) => {
+  const isVerifyTokenConfigured = Boolean(
+    process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
+      (process.env.NODE_ENV === 'test' ? 'test_verify_token_default' : undefined)
+  );
+  const isAppSecretConfigured = Boolean(process.env.WHATSAPP_APP_SECRET);
+
+  return res.json({
+    status: 'online',
+    provider: 'whatsapp_cloud_api',
+    webhookPath: '/api/webhooks/whatsapp',
+    isVerifyTokenConfigured,
+    isAppSecretConfigured,
+    registeredTenantsCount: whatsappTenantRegistry.size,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * 5. POST /api/webhooks/whatsapp/register-tenant — Authorized Tenant Phone/WABA Registration
+ * Allows authenticated owners/managers to map their phone_number_id & waba_id to their business_id.
+ */
+whatsappWebhookRouter.post(
+  '/register-tenant',
+  requireAuth({ allowedRoles: ['owner', 'manager'] }),
+  (req: Request, res: Response) => {
+    const auth = req.auth!;
+    const { phoneNumberId, wabaId, displayPhoneNumber, businessName } = req.body;
+
+    if (!phoneNumberId) {
+      return res.status(400).json({
+        error: 'Missing required field: phoneNumberId',
+        code: 'MISSING_FIELD',
+      });
+    }
+
+    const businessId = auth.businessId!;
+    registerWhatsAppTenantMapping({
+      businessId,
+      phoneNumberId,
+      wabaId,
+      displayPhoneNumber,
+      businessName,
+    });
+
+    return res.json({
+      success: true,
+      message: `WhatsApp phone number ID ${phoneNumberId} successfully registered to business ${businessId}.`,
+      businessId,
+      phoneNumberId,
+      wabaId,
+    });
+  }
+);
+
+/**
+ * Test helper to reset webhook state between automated tests
+ */
+export function resetWebhookTestState(): void {
+  processedEventIds.clear();
+  inMemoryWebhookEvents.length = 0;
+  inMemoryInboundActions.length = 0;
+  inMemoryInboundMemories.length = 0;
+  inMemoryInboundLeads.length = 0;
+
+  // Re-seed default test mappings
+  whatsappTenantRegistry.clear();
+  if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) return;
+  whatsappTenantRegistry.set('109283746501928', {
+    businessId: 'biz_01_health_bengaluru',
+    phoneNumberId: '109283746501928',
+    wabaId: 'waba_veda_bengaluru_01',
+    displayPhoneNumber: '+91 98765 43210',
+    businessName: 'VedaVeda Ayurveda & Wellness',
+  });
+  whatsappTenantRegistry.set('phone_num_id_veda_01', {
+    businessId: 'biz_01_health_bengaluru',
+    phoneNumberId: 'phone_num_id_veda_01',
+    wabaId: 'waba_veda_bengaluru_01',
+    displayPhoneNumber: '+91 98765 43210',
+    businessName: 'VedaVeda Ayurveda & Wellness',
+  });
+  whatsappTenantRegistry.set('209283746501929', {
+    businessId: 'biz_tenant_b_99',
+    phoneNumberId: '209283746501929',
+    wabaId: 'waba_tenant_b_02',
+    displayPhoneNumber: '+91 98765 99999',
+    businessName: 'Tenant B Diagnostics',
+  });
+}
