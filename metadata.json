@@ -1,0 +1,6 @@
+{
+  "name": "Business Doctor AI",
+  "description": "AI-powered Business Operating System for small and growing businesses in India with diagnosis, memory, automations, CRM, customer growth engine, marketing hub, and 5-day transformation trial.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
