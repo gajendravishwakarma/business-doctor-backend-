@@ -1,0 +1,31 @@
+name: Validate Business Doctor AI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, security-hardening-2026-11-04]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Use stable npm version
+        run: npm install --global npm@10.9.2
+      - name: Clear npm cache
+        run: npm cache clean --force
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --legacy-peer-deps
+      - name: TypeScript check
+        run: npm run lint --if-present
+      - name: Unit tests
+        run: npm test --if-present
+      - name: Production build
+        run: npm run build
