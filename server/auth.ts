@@ -70,11 +70,11 @@ export function getServerSupabaseClient(): SupabaseClient | null {
     process.env.SUPABASE_URL ||
     process.env.VITE_SUPABASE_URL ||
     '';
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    '';
+  // Production authorization must use the server-only service role key.
+  // Never fall back to a public anon key for privileged tenant membership lookups.
+  const key = process.env.NODE_ENV === 'production'
+    ? (process.env.SUPABASE_SERVICE_ROLE_KEY || '')
+    : (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '');
 
   if (!url || !key) {
     return null;
@@ -116,6 +116,9 @@ export async function verifyToken(
   // 2. Check for test token signature format used in automated security test suites
   // Format: test_jwt:<user_id>:<email>:<role>:<business_id>:<expiry_timestamp>
   if (token.startsWith('test_jwt:')) {
+    if (process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true') {
+      return { user: null, error: 'Test authorization tokens are disabled outside automated test environments.' };
+    }
     const parts = token.split(':');
     if (parts.length >= 6) {
       const [, userId, email, _role, _bizId, expStr] = parts;
