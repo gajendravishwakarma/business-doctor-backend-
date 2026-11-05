@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 
 export type UserRole = 'owner' | 'manager' | 'marketing' | 'staff' | 'admin' | 'viewer';
 
@@ -85,6 +86,11 @@ export function getServerSupabaseClient(): SupabaseClient | null {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
+      },
+      // Explicit Node-compatible WebSocket transport for Supabase Realtime.
+      // Render instances may not expose globalThis.WebSocket even on newer runtimes.
+      realtime: {
+        transport: WebSocket,
       },
     });
     return serverSupabaseClient;
