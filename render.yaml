@@ -3,7 +3,7 @@ services:
     name: business-doctor-ai
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --legacy-peer-deps --no-audit --no-fund && npm run build
     startCommand: npm start
     healthCheckPath: /healthz
     envVars:
