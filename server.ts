@@ -7,6 +7,7 @@ import { requireAuth } from "./server/auth";
 import { whatsappWebhookRouter } from "./server/webhooks/whatsapp";
 import { whatsappConnectorRouter } from "./server/routes/whatsapp-connector";
 import { connectorAssistantRouter } from "./server/routes/connector-assistant";
+import { businessOnboardingRouter } from "./server/routes/business-onboarding";
 
 export const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -1188,6 +1189,9 @@ app.get("/healthz", (_req, res) => {
 // ==============================================================================
 app.use("/api/webhooks/whatsapp", whatsappWebhookRouter);
 app.use("/api/webhook/whatsapp", whatsappWebhookRouter);
+
+// Secure first-business onboarding (authenticated owner; atomic Supabase RPC)
+app.use("/api/business", businessOnboardingRouter);
 
 // ==============================================================================
 // REAL META WHATSAPP CONNECTOR & MESSAGING DISPATCH (PHASE 6 STEP 4)
