@@ -8,9 +8,29 @@ import { whatsappWebhookRouter } from "./server/webhooks/whatsapp";
 import { whatsappConnectorRouter } from "./server/routes/whatsapp-connector";
 import { connectorAssistantRouter } from "./server/routes/connector-assistant";
 import { businessOnboardingRouter } from "./server/routes/business-onboarding";
+import { authRouter } from "./server/routes/auth";
 
 export const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// Restrict browser API access to the published frontend and local development.
+const allowedOrigins = new Set([
+  "https://gajendravishwakarma.github.io",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Business-Id");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(origin && allowedOrigins.has(origin) ? 204 : 403);
+  next();
+});
+app.use("/api/auth", authRouter);
 
 app.use(
   express.json({
