@@ -30,8 +30,6 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(origin && allowedOrigins.has(origin) ? 204 : 403);
   next();
 });
-app.use("/api/auth", authRouter);
-
 app.use(
   express.json({
     limit: "25mb",
@@ -40,6 +38,9 @@ app.use(
     },
   })
 );
+
+// Parse JSON before auth routes so signup/login can read req.body.
+app.use("/api/auth", authRouter);
 
 // Lazy initialize Gemini AI client
 let aiClient: GoogleGenAI | null = null;
