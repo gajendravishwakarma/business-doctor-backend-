@@ -23,11 +23,9 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
   const businessType = typeof body.businessType === 'string' && allowedTypes.has(body.businessType) ? body.businessType : 'other';
   const maturity = typeof body.dataMaturity === 'string' && allowedMaturity.has(body.dataMaturity) ? body.dataMaturity : 'new_business';
   const stage = typeof body.businessStage === 'string' && allowedStages.has(body.businessStage) ? body.businessStage : 'new';
-  const description = typeof body.description === 'string' ? body.description.trim().slice(0, 2000) : '';
   const website = typeof body.websiteUrl === 'string' ? body.websiteUrl.trim().slice(0, 500) : null;
   const phone = typeof body.phone === 'string' ? body.phone.trim().slice(0, 30) : null;
   const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : user.email;
-  const ageMonths = Number.isInteger(body.businessAgeMonths) ? Math.max(0, Math.min(1200, body.businessAgeMonths)) : 0;
 
   const supabase = getServerSupabaseClient();
   if (!supabase) {
@@ -40,16 +38,12 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
       p_user_id: user.id,
       p_name: name,
       p_business_type: businessType,
-      p_description: description,
-      p_website_url: website || null,
-      p_phone: phone || null,
-      p_email: email || null,
-      p_country: 'India',
-      p_timezone: 'Asia/Kolkata',
-      p_currency: 'INR',
-      p_business_age_months: ageMonths,
-      p_onboarding_mode: stage,
-      p_data_maturity: maturity,
+      p_website: website || '',
+      p_phone: phone || '',
+      p_email: email || '',
+      p_user_name: typeof body.ownerName === 'string' ? body.ownerName.trim().slice(0, 120) : '',
+      p_business_age_stage: stage,
+      p_data_maturity_mode: maturity,
     });
 
     if (error) {
