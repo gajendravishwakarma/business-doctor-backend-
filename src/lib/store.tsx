@@ -329,18 +329,11 @@ const BusinessStoreContext = createContext<BusinessStoreContextType | null>(null
 
 const STORAGE_PREFIX = 'bizdoc_v1_';
 
-const DEFAULT_USER: UserSession = {
-  id: 'usr_founder',
-  email: 'gajendravishwakarma738@gmail.com',
-  name: 'Dr. Gajendra Vishwakarma',
-  role: 'owner',
-};
-
 export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Active business and user state
   const [user, setUser] = useState<UserSession | null>(() => {
     const saved = localStorage.getItem(`${STORAGE_PREFIX}user`);
-    return saved ? JSON.parse(saved) : DEFAULT_USER;
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [allBusinesses, setAllBusinesses] = useState<Business[]>(() => {
@@ -823,31 +816,24 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
         const res = await signInWithEmail(email, password);
         if (res.success && res.session) {
           setUser(res.session);
-          showToast('success', `Signed in as ${res.session.role.toUpperCase()}: ${res.session.name}`);
-          addAuditLog('USER_SIGNIN', `User signed in: ${res.session.email} (Role: ${res.session.role})`);
+          showToast('success', `Signed in as ${res.session.name}`);
           return { success: true };
-        } else if (res.error) {
-          showToast('error', 'Supabase Auth Error', res.error);
-          return { success: false, error: res.error };
         }
+        return { success: false, error: res.error || 'Login failed. Check your credentials.' };
       }
-
-      // Local / Offline non-production preview session
+      if (import.meta.env.PROD) {
+        return { success: false, error: 'Secure login is unavailable. Please try again later.' };
+      }
       const usr: UserSession = {
-        id: `usr_offline_${Date.now()}`,
-        email,
-        name: name || email.split('@')[0],
-        role,
-        last_sign_in_at: new Date().toISOString(),
-        is_demo: true,
+        id: `usr_offline_${Date.now()}`, email, name: name || email.split('@')[0], role,
+        last_sign_in_at: new Date().toISOString(), is_demo: true,
         access_token: 'demo_token_offline_preview',
       };
       setUser(usr);
-      showToast('info', `Preview Mode: Welcome, ${usr.name}!`, 'Operating in local offline sandbox mode (non-production).');
-      addAuditLog('USER_SIGNIN', `Offline preview session started for: ${usr.email} (${role})`);
+      showToast('info', `Preview Mode: Welcome, ${usr.name}`, 'This is a local preview, not a real account.');
       return { success: true };
     },
-    [addAuditLog, showToast]
+    [showToast]
   );
 
   const signup = useCallback(
@@ -857,33 +843,28 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
         const res = await signUpWithEmail(email, password, name || email.split('@')[0], role);
         if (res.success && res.session) {
           setUser(res.session);
-          showToast('success', `Account created successfully for ${res.session.name}`);
-          addAuditLog('USER_SIGNUP', `Created new user: ${res.session.email} (Role: ${res.session.role})`);
+          showToast('success', `Account created for ${res.session.name}`);
           return { success: true };
-        } else if (res.confirmationRequired) {
-          showToast('info', 'Confirmation Required', res.error);
-          return { success: true };
-        } else if (res.error) {
-          showToast('error', 'Registration Error', res.error);
-          return { success: false, error: res.error };
         }
+        if (res.confirmationRequired) {
+          showToast('info', 'Email confirmation required', res.error);
+          return { success: true };
+        }
+        return { success: false, error: res.error || 'Registration failed.' };
       }
-
+      if (import.meta.env.PROD) {
+        return { success: false, error: 'Secure registration is unavailable. Please try again later.' };
+      }
       const usr: UserSession = {
-        id: `usr_offline_${Date.now()}`,
-        email,
-        name: name || email.split('@')[0],
-        role,
-        last_sign_in_at: new Date().toISOString(),
-        is_demo: true,
+        id: `usr_offline_${Date.now()}`, email, name: name || email.split('@')[0], role,
+        last_sign_in_at: new Date().toISOString(), is_demo: true,
         access_token: 'demo_token_offline_preview',
       };
       setUser(usr);
-      showToast('info', `Preview Account: ${usr.name}`, 'Operating in local offline sandbox mode.');
-      addAuditLog('USER_SIGNUP', `Created offline preview account: ${usr.email} (${role})`);
+      showToast('info', `Preview Account: ${usr.name}`, 'This is a local preview, not a real account.');
       return { success: true };
     },
-    [addAuditLog, showToast]
+    [showToast]
   );
 
   const logout = useCallback(async () => {
