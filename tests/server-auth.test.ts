@@ -4,6 +4,7 @@ import { memoryMembershipRegistry, requireAuth, resolveTenantMembership, verifyT
 
 describe('server authentication boundaries', () => {
   afterEach(() => {
+    memoryMembershipRegistry.delete('test_business:test_owner');
     vi.restoreAllMocks();
   });
 
