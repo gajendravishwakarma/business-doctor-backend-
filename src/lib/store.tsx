@@ -721,6 +721,13 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
                 ? 'existing_no_history'
                 : newBiz.data_maturity_mode,
             businessStage: newBiz.business_age_stage,
+            industry: newBiz.industry,
+            location: newBiz.location,
+            country: newBiz.country,
+            currency: newBiz.currency,
+            currencySymbol: newBiz.currency_symbol,
+            timezone: newBiz.timezone,
+            targetCustomers: newBiz.target_customers,
             websiteUrl: newBiz.website || '',
             phone: newBiz.contact_phone || '',
             email: newBiz.contact_email || user.email,
