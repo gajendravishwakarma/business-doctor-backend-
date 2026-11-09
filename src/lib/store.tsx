@@ -606,6 +606,19 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
       const target = allBusinesses.find((b) => b.id === bizId);
       if (target) {
         setActiveBizId(bizId);
+        const client = getSupabaseClient();
+        if (client && user?.id && !user.is_demo) {
+          client.from('business_members')
+            .select('role')
+            .eq('business_id', bizId)
+            .eq('user_id', user.id)
+            .maybeSingle()
+            .then(({ data, error }) => {
+              if (!error && data?.role) {
+                setUser((current) => current ? { ...current, role: data.role as UserRole } : current);
+              }
+            });
+        }
         // Load collections for this business
         const load = <T,>(key: string, fallback: T[]): T[] => {
           const s = localStorage.getItem(`${STORAGE_PREFIX}${bizId}_${key}`);
@@ -667,7 +680,7 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
         showToast('info', `Switched to ${target.name}`);
       }
     },
-    [allBusinesses, showToast]
+    [allBusinesses, user, showToast]
   );
 
   const updateBusiness = useCallback(
@@ -719,6 +732,7 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
           throw new Error(payload?.message || 'Secure business onboarding failed. Please retry after checking the server configuration.');
         }
         newId = payload.business.id;
+        setUser((current) => current ? { ...current, role: 'owner' } : current);
       }
 
       let ageMonths = newBiz.business_age_months;
