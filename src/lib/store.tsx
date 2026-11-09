@@ -859,7 +859,7 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
       showToast('success', `Business "${newBiz.name}" created successfully!`);
       return newId;
     },
-    [user?.id, addAuditLog, showToast]
+    [user, addAuditLog, showToast]
   );
 
   const login = useCallback(
