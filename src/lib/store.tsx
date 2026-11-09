@@ -3828,20 +3828,8 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
     let cancelled = false;
 
     const restoreWorkspace = async () => {
-      const { data, error } = await client.auth.getSession();
-      if (cancelled) return;
-      if (error || !data.session?.user) {
-        if (import.meta.env.PROD) {
-          setUser(null);
-          setAllBusinesses([]);
-          setActiveBizId('');
-        }
-        return;
-      }
-
       const verifiedSession = await getCurrentSupabaseSession();
-      if (cancelled || !verifiedSession) return;
-      setUser(verifiedSession);
+      if (cancelled || !verifiedSession || verifiedSession.id !== user?.id) return;
 
       const { data: memberships, error: membershipError } = await client
         .from('business_members')
@@ -3901,7 +3889,13 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id && !user.is_demo && activeBizId && activeBizId !== SEED_BUSINESS.id) {
+      void fetchFromSupabase();
+    }
+  }, [user?.id, user?.is_demo, activeBizId, fetchFromSupabase]);
 
   const addDataSource = useCallback(
     (ds: Omit<DataSource, 'id' | 'business_id'>) => {
