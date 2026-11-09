@@ -29,9 +29,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onClose,
   onComplete,
 }) => {
-  const { createBusiness, setIsOnboardingOpen, setCurrentView, business } = useBusinessStore();
+  const { createBusiness, setIsOnboardingOpen, setCurrentView, business, showToast } = useBusinessStore();
   const [step, setStep] = useState<number>(1);
   const [isWebsiteModalOpen, setIsWebsiteModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -133,8 +134,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     }
   };
 
-  const handleFinish = () => {
-    if (!name.trim()) return;
+  const handleFinish = async () => {
+    if (!name.trim() || isCreating) return;
+    setIsCreating(true);
+    try {
 
     let ageMonths = 0;
     if (dataMaturityMode === 'new_no_data') {
@@ -147,7 +150,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       ageMonths = businessAgeStage === 'established' ? 48 : businessAgeStage === 'growing' ? 24 : 12;
     }
 
-    createBusiness({
+    await createBusiness({
       name: name.trim(),
       business_type: businessType,
       industry,
@@ -175,6 +178,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       onClose();
     } else {
       setIsOnboardingOpen(false);
+    }
+    } catch (error: any) {
+      showToast('error', 'Business creation failed', error?.message || 'Please try again.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -565,7 +573,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             </button>
           ) : (
             <button
-              onClick={handleFinish}
+              onClick={handleFinish} disabled={isCreating}
               className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
             >
               <Sparkles className="w-4 h-4 text-amber-300" />
