@@ -146,7 +146,7 @@ export interface BusinessStoreContextType {
   createBusiness: (newBiz: Omit<Business, 'id' | 'created_at' | 'updated_at'>) => Promise<string>;
   login: (
     email: string,
-    password?: string,
+    password: string,
     name?: string,
     role?: UserRole
   ) => Promise<{ success: boolean; error?: string }>;
