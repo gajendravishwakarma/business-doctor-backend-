@@ -65,7 +65,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       } else {
         const res = await login(
           email.trim(),
-          password || 'password123',
+          password,
           name.trim() || email.split('@')[0],
           selectedRole
         );
