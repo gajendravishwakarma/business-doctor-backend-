@@ -851,7 +851,10 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const signup = useCallback(
-    async (email: string, password?: string, name?: string, role: UserRole = 'owner') => {
+    async (email: string, password: string, name?: string, role: UserRole = 'owner') => {
+      if (!email.trim() || !password?.trim()) {
+        return { success: false, error: 'Email and password are required.' };
+      }
       const client = getSupabaseClient();
       if (client && password) {
         const res = await signUpWithEmail(email, password, name || email.split('@')[0], role);
