@@ -59,9 +59,9 @@ export function getSupabaseClient(): SupabaseClient | null {
  * Maps a Supabase Auth User & Session to a typed UserSession
  */
 export function mapSupabaseUserToSession(user: User, session?: Session | null): UserSession {
-  const metaRole = (user.user_metadata?.role as UserRole) || 'owner';
-  const role: UserRole =
-    metaRole === 'staff' || metaRole === 'manager' || metaRole === 'marketing' ? metaRole : 'owner';
+  // Auth metadata is user-editable and is not an authorization source.
+  // The active business role is loaded from business_members after membership verification.
+  const role: UserRole = 'viewer';
 
   return {
     id: user.id,
@@ -184,10 +184,14 @@ export async function getCurrentSupabaseSession(): Promise<UserSession | null> {
 
   try {
     const { data, error } = await client.auth.getSession();
-    if (error || !data.session?.user) {
+    if (error || !data.session?.user || !data.session.access_token) {
       return null;
     }
-    return mapSupabaseUserToSession(data.session.user, data.session);
+    const { data: verified, error: verificationError } = await client.auth.getUser(data.session.access_token);
+    if (verificationError || !verified.user) {
+      return null;
+    }
+    return mapSupabaseUserToSession(verified.user, data.session);
   } catch {
     return null;
   }
