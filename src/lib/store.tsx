@@ -152,7 +152,7 @@ export interface BusinessStoreContextType {
   ) => Promise<{ success: boolean; error?: string }>;
   signup: (
     email: string,
-    password?: string,
+    password: string,
     name?: string,
     role?: UserRole
   ) => Promise<{ success: boolean; error?: string }>;
