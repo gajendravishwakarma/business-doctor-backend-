@@ -26,6 +26,13 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
   const website = typeof body.websiteUrl === 'string' ? body.websiteUrl.trim().slice(0, 500) : null;
   const phone = typeof body.phone === 'string' ? body.phone.trim().slice(0, 30) : null;
   const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : user.email;
+  const industry = typeof body.industry === 'string' ? body.industry.trim().slice(0, 120) : '';
+  const location = typeof body.location === 'string' ? body.location.trim().slice(0, 180) : '';
+  const country = typeof body.country === 'string' ? body.country.trim().slice(0, 80) : 'India';
+  const currency = typeof body.currency === 'string' && /^[A-Z]{3}$/.test(body.currency) ? body.currency : 'INR';
+  const currencySymbol = typeof body.currencySymbol === 'string' ? body.currencySymbol.trim().slice(0, 8) : '₹';
+  const timezone = typeof body.timezone === 'string' ? body.timezone.trim().slice(0, 80) : 'Asia/Kolkata';
+  const description = typeof body.targetCustomers === 'string' ? body.targetCustomers.trim().slice(0, 500) : '';
 
   const supabase = getServerSupabaseClient();
   if (!supabase) {
@@ -44,6 +51,13 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
       p_user_name: typeof body.ownerName === 'string' ? body.ownerName.trim().slice(0, 120) : '',
       p_business_age_stage: stage,
       p_data_maturity_mode: maturity,
+      p_industry: industry,
+      p_location: location,
+      p_country: country,
+      p_currency: currency,
+      p_currency_symbol: currencySymbol,
+      p_timezone: timezone,
+      p_description: description,
     });
 
     if (error) {
