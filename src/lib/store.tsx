@@ -3821,23 +3821,87 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [business.id, updateBusiness, addAuditLog, showToast]);
 
-  // Auto-connect and sync from Supabase if configured on mount
+  // Restore only a verified Supabase identity, then load only businesses this user belongs to.
   useEffect(() => {
     const client = getSupabaseClient();
-    if (client) {
-      client.auth.getSession().then(({ data }) => {
-        if (data.session?.user) {
-          const u = data.session.user;
-          setUser({
-            id: u.id,
-            email: u.email || 'user@example.com',
-            name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'User',
-          });
+    if (!client) return;
+    let cancelled = false;
+
+    const restoreWorkspace = async () => {
+      const { data, error } = await client.auth.getSession();
+      if (cancelled) return;
+      if (error || !data.session?.user) {
+        if (import.meta.env.PROD) {
+          setUser(null);
+          setAllBusinesses([]);
+          setActiveBizId('');
         }
-      });
-      fetchFromSupabase();
-    }
-  }, [fetchFromSupabase]);
+        return;
+      }
+
+      const verifiedSession = await getCurrentSupabaseSession();
+      if (cancelled || !verifiedSession) return;
+      setUser(verifiedSession);
+
+      const { data: memberships, error: membershipError } = await client
+        .from('business_members')
+        .select('business_id, role')
+        .eq('user_id', verifiedSession.id);
+
+      if (cancelled) return;
+      if (membershipError || !memberships?.length) {
+        setAllBusinesses([]);
+        setActiveBizId('');
+        return;
+      }
+
+      const businessIds = memberships.map((membership: any) => membership.business_id).filter(Boolean);
+      const { data: rows, error: businessError } = await client
+        .from('businesses')
+        .select('*')
+        .in('id', businessIds);
+
+      if (cancelled) return;
+      if (businessError || !rows?.length) {
+        setAllBusinesses([]);
+        setActiveBizId('');
+        return;
+      }
+
+      const mappedBusinesses: Business[] = rows.map((row: any) => ({
+        id: row.id,
+        name: row.name || 'Unnamed business',
+        business_type: row.business_type === 'service' ? 'service' : row.business_type === 'hybrid' ? 'hybrid' : 'product',
+        industry: row.industry || row.description || '',
+        location: row.location || '',
+        country: row.country || 'India',
+        currency: row.currency || 'INR',
+        currency_symbol: row.currency === 'INR' || !row.currency ? '₹' : row.currency,
+        timezone: row.timezone || 'Asia/Kolkata',
+        business_age_stage: ['new', 'early', 'growing', 'established'].includes(row.onboarding_mode) ? row.onboarding_mode : 'new',
+        data_maturity_mode: row.data_maturity === 'new_business' ? 'new_no_data' : row.data_maturity === 'existing_no_history' ? 'existing_no_data' : row.data_maturity || 'existing_partial',
+        business_age_months: row.business_age_months ?? 0,
+        target_customers: row.description || '',
+        business_goals: [],
+        monthly_revenue_target: Number(row.monthly_revenue_target || 0),
+        website: row.website_url || '',
+        contact_phone: row.phone || '',
+        contact_email: row.email || '',
+        created_at: row.created_at || new Date().toISOString(),
+        updated_at: row.updated_at || new Date().toISOString(),
+      }));
+
+      setAllBusinesses(mappedBusinesses);
+      const rememberedId = localStorage.getItem(`${STORAGE_PREFIX}active_biz_id`);
+      const selectedId = mappedBusinesses.some((item) => item.id === rememberedId) ? rememberedId! : mappedBusinesses[0].id;
+      setActiveBizId(selectedId);
+    };
+
+    void restoreWorkspace();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const addDataSource = useCallback(
     (ds: Omit<DataSource, 'id' | 'business_id'>) => {
