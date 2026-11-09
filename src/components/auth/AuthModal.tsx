@@ -46,14 +46,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    if (!email.trim()) return;
+    if (!email.trim() || !password.trim()) { setErrorMessage('Email aur password dono zaroori hain.'); return; }
 
     setIsLoading(true);
     try {
       if (isSignUp) {
         const res = await signup(
           email.trim(),
-          password || 'password123',
+          password,
           name.trim() || email.split('@')[0],
           selectedRole
         );
