@@ -30,14 +30,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     logout,
     business,
     isSupabaseConfigured,
-    switchRole,
   } = useBusinessStore();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('owner');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -55,7 +53,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           email.trim(),
           password,
           name.trim() || email.split('@')[0],
-          selectedRole
+          'owner'
         );
         if (!res.success) {
           setErrorMessage(res.error || 'Failed to create account.');
@@ -157,44 +155,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Multi-Role Switcher for Testing/Role Verification */}
-              <div className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-700/60 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-indigo-400" /> Switch Active Role (RBAC Testing):
-                  </span>
-                  <span className="text-[10px] text-slate-400">Enforces Route & Action Guards</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['owner', 'manager', 'staff'] as UserRole[]).map((r) => {
-                    const isSelected = user.role === r;
-                    const rStyle = getRoleBadgeStyle(r);
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => switchRole(r)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center ${
-                          isSelected
-                            ? `${rStyle.bg} ${rStyle.text} ${rStyle.border} ring-1 ring-indigo-500`
-                            : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        {rStyle.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Security & Session Integrity Status */}
               <div className="space-y-2 text-xs text-slate-300">
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/40 border border-slate-800">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Postgres Row-Level Security (RLS)</span>
+                    <span>Database Row-Level Security (RLS)</span>
                   </div>
-                  <span className="text-[10px] font-mono text-emerald-400 uppercase font-semibold">Active</span>
+                  <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold">Server enforced</span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/40 border border-slate-800">
@@ -274,34 +242,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Role Selection */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Workspace Role (RBAC Authorization)
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['owner', 'manager', 'staff'] as UserRole[]).map((r) => {
-                    const isSelected = selectedRole === r;
-                    const rStyle = getRoleBadgeStyle(r);
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setSelectedRole(r)}
-                        className={`p-2 rounded-xl text-left border transition-all ${
-                          isSelected
-                            ? `${rStyle.bg} ${rStyle.border} ring-1 ring-indigo-500`
-                            : 'bg-slate-800/60 border-slate-700 hover:bg-slate-800'
-                        }`}
-                      >
-                        <div className={`text-xs font-bold ${rStyle.text}`}>{rStyle.label}</div>
-                        <div className="text-[10px] text-slate-400 truncate mt-0.5 capitalize">{r}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <button
                 type="submit"
                 disabled={isLoading}
@@ -312,8 +252,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   {isLoading
                     ? 'Authenticating...'
                     : isSignUp
-                    ? `Create ${selectedRole.toUpperCase()} Account`
-                    : `Sign In as ${selectedRole.toUpperCase()}`}
+                    ? 'Create Account'
+                    : 'Sign In'}
                 </span>
               </button>
 
