@@ -143,7 +143,7 @@ export interface BusinessStoreContextType {
   switchBusiness: (businessId: string) => void;
   updateBusiness: (updates: Partial<Business>) => void;
   updateBusinessProfile: (updates: Partial<Business>) => void;
-  createBusiness: (newBiz: Omit<Business, 'id' | 'created_at' | 'updated_at'>) => string;
+  createBusiness: (newBiz: Omit<Business, 'id' | 'created_at' | 'updated_at'>) => Promise<string>;
   login: (
     email: string,
     password?: string,
@@ -329,6 +329,25 @@ const BusinessStoreContext = createContext<BusinessStoreContextType | null>(null
 
 const STORAGE_PREFIX = 'bizdoc_v1_';
 
+const EMPTY_BUSINESS: Business = {
+  id: '',
+  name: 'No business connected',
+  business_type: 'hybrid',
+  industry: '',
+  location: '',
+  country: 'India',
+  currency: 'INR',
+  currency_symbol: '₹',
+  timezone: 'Asia/Kolkata',
+  business_age_stage: 'new',
+  data_maturity_mode: 'new_no_data',
+  target_customers: '',
+  business_goals: [],
+  monthly_revenue_target: 0,
+  created_at: '',
+  updated_at: '',
+};
+
 export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Active business and user state
   const [user, setUser] = useState<UserSession | null>(() => {
@@ -339,21 +358,24 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   });
 
   const [allBusinesses, setAllBusinesses] = useState<Business[]>(() => {
+    if (import.meta.env.PROD) return [];
     const saved = localStorage.getItem(`${STORAGE_PREFIX}all_businesses`);
     return saved ? JSON.parse(saved) : [SEED_BUSINESS];
   });
 
   const [activeBizId, setActiveBizId] = useState<string>(() => {
+    if (import.meta.env.PROD) return '';
     const saved = localStorage.getItem(`${STORAGE_PREFIX}active_biz_id`);
     return saved || SEED_BUSINESS.id;
   });
 
   const business = useMemo(() => {
-    return allBusinesses.find((b) => b.id === activeBizId) || allBusinesses[0] || SEED_BUSINESS;
+    return allBusinesses.find((b) => b.id === activeBizId) || allBusinesses[0] || (import.meta.env.PROD ? EMPTY_BUSINESS : SEED_BUSINESS);
   }, [allBusinesses, activeBizId]);
 
   // Collections scoped to business
   const getInitialCollection = <T,>(key: string, seed: T[]): T[] => {
+    if (import.meta.env.PROD || !activeBizId) return [];
     const saved = localStorage.getItem(`${STORAGE_PREFIX}${activeBizId}_${key}`);
     return saved ? JSON.parse(saved) : (activeBizId === SEED_BUSINESS.id ? seed : []);
   };
@@ -372,6 +394,7 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [diagnoses, setDiagnoses] = useState<AIDiagnosis[]>(() => getInitialCollection('diagnoses', SEED_DIAGNOSES));
   const [followups, setFollowUps] = useState<CRMFollowUp[]>(() => getInitialCollection('followups', []));
   const [memory, setMemory] = useState<BusinessMemory[]>(() => {
+    if (import.meta.env.PROD || !activeBizId) return [];
     const saved = localStorage.getItem(`${STORAGE_PREFIX}${activeBizId}_memory`);
     if (saved) {
       try {
@@ -427,31 +450,37 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   // Trial State
   const [activeTrialDay, setActiveTrialDay] = useState<number>(1);
   const [trialDays, setTrialDays] = useState<TrialDayContent[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}${activeBizId}_trial`);
+    const demoMode = !import.meta.env.PROD;
+    const trialBusiness = demoMode ? SEED_BUSINESS : EMPTY_BUSINESS;
+    const trialOrders = demoMode ? SEED_ORDERS : [];
+    const trialExpenses = demoMode ? SEED_EXPENSES : [];
+    const trialCustomers = demoMode ? SEED_CUSTOMERS : [];
+    const trialLeads = demoMode ? SEED_LEADS : [];
+    const trialBookings = demoMode ? SEED_BOOKINGS : [];
+    const trialProducts = demoMode ? SEED_PRODUCTS : [];
+    const trialServices = demoMode ? SEED_SERVICES : [];
+    const trialDataSources = demoMode ? SEED_DATA_SOURCES : [];
+    const trialDiagnoses = demoMode ? SEED_DIAGNOSES : [];
+    const trialAutomations = demoMode ? SEED_AUTOMATIONS : [];
+    const saved = !demoMode && activeBizId ? localStorage.getItem(`${STORAGE_PREFIX}${activeBizId}_trial`) : null;
     const savedDays: TrialDayContent[] | undefined = saved ? JSON.parse(saved) : undefined;
     const initialMetrics = calculateBusinessMetrics(
-      SEED_BUSINESS,
-      SEED_ORDERS,
-      SEED_EXPENSES,
-      SEED_CUSTOMERS,
-      SEED_LEADS,
-      SEED_BOOKINGS,
-      SEED_PRODUCTS
+      trialBusiness, trialOrders, trialExpenses, trialCustomers, trialLeads, trialBookings, trialProducts
     );
     const initialCtx: TrialEngineContext = {
-      products: SEED_PRODUCTS,
-      services: SEED_SERVICES,
-      customers: SEED_CUSTOMERS,
-      leads: SEED_LEADS,
-      orders: SEED_ORDERS,
-      bookings: SEED_BOOKINGS,
-      expenses: SEED_EXPENSES,
-      dataSources: SEED_DATA_SOURCES,
+      products: trialProducts,
+      services: trialServices,
+      customers: trialCustomers,
+      leads: trialLeads,
+      orders: trialOrders,
+      bookings: trialBookings,
+      expenses: trialExpenses,
+      dataSources: trialDataSources,
       memory: [],
-      diagnoses: SEED_DIAGNOSES,
-      automations: SEED_AUTOMATIONS,
+      diagnoses: trialDiagnoses,
+      automations: trialAutomations,
     };
-    return generateAllTrialDays(SEED_BUSINESS, initialMetrics, initialCtx, savedDays);
+    return generateAllTrialDays(trialBusiness, initialMetrics, initialCtx, savedDays);
   });
 
   // UI state
@@ -522,6 +551,7 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const saveCollection = useCallback(
     (key: string, data: any) => {
+      if (!activeBizId) return;
       localStorage.setItem(`${STORAGE_PREFIX}${activeBizId}_${key}`, JSON.stringify(data));
     },
     [activeBizId]
@@ -652,10 +682,44 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const createBusiness = useCallback(
-    (newBiz: Omit<Business, 'id' | 'created_at' | 'updated_at'>): string => {
-      const newId = typeof crypto !== 'undefined' && crypto.randomUUID
+    async (newBiz: Omit<Business, 'id' | 'created_at' | 'updated_at'>): Promise<string> => {
+      let newId = typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : createUuid();
+
+      // Production onboarding must be created atomically by the authenticated backend.
+      if (import.meta.env.PROD || (user?.access_token && !user.is_demo)) {
+        if (!user?.access_token || user.is_demo) {
+          throw new Error('Please sign in with your verified account before creating a business.');
+        }
+        const apiBase = ((import.meta.env as any).VITE_API_BASE_URL || 'https://business-doctor-ai-backend.onrender.com').replace(/\/$/, '');
+        const response = await fetch(`${apiBase}/api/business/onboard`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${user.access_token}`,
+          },
+          body: JSON.stringify({
+            name: newBiz.name,
+            businessType: newBiz.business_type === 'product' ? 'retail' : newBiz.business_type,
+            dataMaturity: newBiz.data_maturity_mode === 'new_no_data'
+              ? 'new_business'
+              : newBiz.data_maturity_mode === 'existing_no_data'
+                ? 'existing_no_history'
+                : newBiz.data_maturity_mode,
+            businessStage: newBiz.business_age_stage,
+            websiteUrl: newBiz.website || '',
+            phone: newBiz.contact_phone || '',
+            email: newBiz.contact_email || user.email,
+            ownerName: user.name,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload?.success || !payload?.business?.id) {
+          throw new Error(payload?.message || 'Secure business onboarding failed. Please retry after checking the server configuration.');
+        }
+        newId = payload.business.id;
+      }
 
       let ageMonths = newBiz.business_age_months;
       if (ageMonths == null) {
@@ -764,32 +828,10 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
       setTrialDays(initialTrialDays);
       setActiveTrialDay(1);
 
-      // Supabase remote persistence using mapped schemas
+      // The backend RPC already created the business and owner membership atomically.
+      // Only persist optional baseline records from a verified Supabase session.
       const client = getSupabaseClient();
-      if (client) {
-        const bizRow = mapBusinessToDb(fullBiz);
-        client.from('businesses').upsert([bizRow]).then(async ({ error }) => {
-          if (error) {
-            console.warn('Supabase business upsert error:', error.message);
-          } else {
-            // Link authenticated user to business_members
-            try {
-              const { data: authData } = await client.auth.getUser();
-              const authUserId = authData?.user?.id || (user?.id && !user.id.startsWith('usr_preview') ? user.id : null);
-              if (authUserId) {
-                await client.from('business_members').upsert([{
-                  id: toValidUuid(`${newId}:${authUserId}`),
-                  business_id: newId,
-                  user_id: authUserId,
-                  role: 'owner',
-                }]);
-              }
-            } catch (memberErr: any) {
-              console.warn('business_members link error:', memberErr?.message);
-            }
-          }
-        });
-
+      if (client && user?.access_token && !user.is_demo) {
         const memRow = mapMemoryToDb(day0Entry, newId);
         client.from('business_memory').upsert([memRow]).then(({ error }) => {
           if (error) console.warn('Supabase baseline memory upsert error:', error.message);
@@ -3817,6 +3859,10 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const resetToSampleData = useCallback(() => {
+    if (import.meta.env.PROD) {
+      showToast('error', 'Sample data is disabled in production.');
+      return;
+    }
     setAllBusinesses([SEED_BUSINESS]);
     setActiveBizId(SEED_BUSINESS.id);
     setMembers(SEED_MEMBERS);
