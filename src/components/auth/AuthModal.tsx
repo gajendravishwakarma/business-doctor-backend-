@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useBusinessStore } from '../../lib/store';
-import { UserRole } from '../../types/database';
 import { getRoleBadgeStyle, validateSession } from '../../lib/permissions';
 import {
   X,
@@ -65,7 +64,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           email.trim(),
           password,
           name.trim() || email.split('@')[0],
-          selectedRole
+          'owner'
         );
         if (!res.success) {
           setErrorMessage(res.error || 'Failed to sign in.');
@@ -168,7 +167,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/40 border border-slate-800">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Multi-Tenant `business_id` Isolation</span>
+                    <span>Business-specific data boundary</span>
                   </div>
                   <span className="text-[10px] font-mono text-indigo-300">{business.id.slice(0, 10)}...</span>
                 </div>
