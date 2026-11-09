@@ -1,5 +1,7 @@
--- Atomic first-business onboarding. Run once in Supabase SQL Editor.
+-- Atomic first-business onboarding. Re-run this migration when upgrading the RPC signature.
 -- Privileged execution is restricted to service_role; the API verifies the Supabase JWT first.
+DROP FUNCTION IF EXISTS public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.create_business_with_owner(
   p_business_id TEXT,
   p_user_id UUID,
@@ -10,7 +12,14 @@ CREATE OR REPLACE FUNCTION public.create_business_with_owner(
   p_email TEXT DEFAULT '',
   p_user_name TEXT DEFAULT '',
   p_business_age_stage TEXT DEFAULT 'new',
-  p_data_maturity_mode TEXT DEFAULT 'new_business'
+  p_data_maturity_mode TEXT DEFAULT 'new_business',
+  p_industry TEXT DEFAULT '',
+  p_location TEXT DEFAULT '',
+  p_country TEXT DEFAULT 'India',
+  p_currency TEXT DEFAULT 'INR',
+  p_currency_symbol TEXT DEFAULT '₹',
+  p_timezone TEXT DEFAULT 'Asia/Kolkata',
+  p_description TEXT DEFAULT ''
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -42,14 +51,20 @@ BEGIN
   INSERT INTO public.businesses (
     id, name, business_type, industry, location, country, currency,
     currency_symbol, timezone, business_age_stage, data_maturity_mode,
-    website, contact_phone, contact_email
+    website, contact_phone, contact_email, description
   ) VALUES (
-    p_business_id, trim(p_name), p_business_type, initcap(p_business_type),
-    'India', 'India', 'INR', '₹', 'Asia/Kolkata',
+    p_business_id, trim(p_name), p_business_type,
+    COALESCE(NULLIF(trim(p_industry), ''), initcap(p_business_type)),
+    COALESCE(NULLIF(trim(p_location), ''), 'India'),
+    COALESCE(NULLIF(trim(p_country), ''), 'India'),
+    COALESCE(NULLIF(trim(p_currency), ''), 'INR'),
+    COALESCE(NULLIF(trim(p_currency_symbol), ''), '₹'),
+    COALESCE(NULLIF(trim(p_timezone), ''), 'Asia/Kolkata'),
     p_business_age_stage, p_data_maturity_mode,
     COALESCE(NULLIF(trim(p_website), ''), ''),
     COALESCE(NULLIF(trim(p_phone), ''), ''),
-    COALESCE(NULLIF(trim(p_email), ''), '')
+    COALESCE(NULLIF(trim(p_email), ''), ''),
+    COALESCE(NULLIF(trim(p_description), ''), '')
   )
   RETURNING * INTO v_business;
 
@@ -71,6 +86,6 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_business_with_owner(TEXT, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO service_role;
