@@ -23,9 +23,9 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
   const businessType = typeof body.businessType === 'string' && allowedTypes.has(body.businessType) ? body.businessType : 'other';
   const maturity = typeof body.dataMaturity === 'string' && allowedMaturity.has(body.dataMaturity) ? body.dataMaturity : 'new_business';
   const stage = typeof body.businessStage === 'string' && allowedStages.has(body.businessStage) ? body.businessStage : 'new';
-  const website = typeof body.websiteUrl === 'string' ? body.websiteUrl.trim().slice(0, 500) : null;
-  const phone = typeof body.phone === 'string' ? body.phone.trim().slice(0, 30) : null;
-  const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : user.email;
+  const website = typeof body.websiteUrl === 'string' ? body.websiteUrl.trim().slice(0, 500) : '';
+  const phone = typeof body.phone === 'string' ? body.phone.trim().slice(0, 30) : '';
+  const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : (user.email || '');
   const industry = typeof body.industry === 'string' ? body.industry.trim().slice(0, 120) : '';
   const location = typeof body.location === 'string' ? body.location.trim().slice(0, 180) : '';
   const country = typeof body.country === 'string' ? body.country.trim().slice(0, 80) : 'India';
@@ -40,15 +40,15 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
   }
 
   try {
+    const businessId = randomUUID();
     const { data, error } = await supabase.rpc('create_business_with_owner', {
-      p_business_id: randomUUID(),
+      p_business_id: businessId,
       p_user_id: user.id,
       p_name: name,
       p_business_type: businessType,
-      p_website: website || '',
-      p_phone: phone || '',
-      p_email: email || '',
-      p_user_name: typeof body.ownerName === 'string' ? body.ownerName.trim().slice(0, 120) : '',
+      p_website_url: website,
+      p_phone: phone,
+      p_email: email,
       p_business_age_stage: stage,
       p_data_maturity_mode: maturity,
       p_industry: industry,
@@ -69,7 +69,7 @@ businessOnboardingRouter.post('/onboard', requireAuth({ requireBusiness: false }
     return res.status(201).json({
       success: true,
       business: {
-        id: result?.business_id,
+        id: result?.business_id || businessId,
         name: result?.name || name,
         role: result?.role || 'owner',
         status: result?.status || 'created',
