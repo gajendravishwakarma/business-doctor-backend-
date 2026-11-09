@@ -161,7 +161,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Database Row-Level Security (RLS)</span>
                   </div>
-                  <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold">Server enforced</span>
+                  <span className="text-[10px] font-mono text-amber-400 uppercase font-semibold">Policy verification pending</span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/40 border border-slate-800">
