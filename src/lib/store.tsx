@@ -3829,7 +3829,13 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const restoreWorkspace = async () => {
       const verifiedSession = await getCurrentSupabaseSession();
-      if (cancelled || !verifiedSession || verifiedSession.id !== user?.id) return;
+      if (cancelled) return;
+      if (!verifiedSession || verifiedSession.id !== user?.id) {
+        setUser(null);
+        setAllBusinesses([]);
+        setActiveBizId('');
+        return;
+      }
 
       const { data: memberships, error: membershipError } = await client
         .from('business_members')
@@ -3882,6 +3888,8 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
       setAllBusinesses(mappedBusinesses);
       const rememberedId = localStorage.getItem(`${STORAGE_PREFIX}active_biz_id`);
       const selectedId = mappedBusinesses.some((item) => item.id === rememberedId) ? rememberedId! : mappedBusinesses[0].id;
+      const selectedMembership = memberships.find((membership: any) => membership.business_id === selectedId);
+      setUser({ ...verifiedSession, role: selectedMembership?.role || 'viewer' });
       setActiveBizId(selectedId);
     };
 
