@@ -332,6 +332,8 @@ const STORAGE_PREFIX = 'bizdoc_v1_';
 export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Active business and user state
   const [user, setUser] = useState<UserSession | null>(() => {
+    // Production identity must come from a verified Supabase session, never cached app state.
+    if (import.meta.env.PROD) return null;
     const saved = localStorage.getItem(`${STORAGE_PREFIX}user`);
     return saved ? JSON.parse(saved) : null;
   });
@@ -483,19 +485,28 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Supabase Auth real-time session listener and initial token validation
   useEffect(() => {
+    let mounted = true;
     getCurrentSupabaseSession().then((remoteSession) => {
-      if (remoteSession) {
-        setUser(remoteSession);
+      if (!mounted) return;
+      setUser(remoteSession);
+      if (!remoteSession && import.meta.env.PROD) {
+        localStorage.removeItem(`${STORAGE_PREFIX}user`);
+        setAllBusinesses([]);
+        setActiveBizId('');
       }
     });
 
     const unsubscribe = onAuthStateChange((session) => {
-      if (session) {
-        setUser(session);
+      setUser(session);
+      if (!session && import.meta.env.PROD) {
+        localStorage.removeItem(`${STORAGE_PREFIX}user`);
+        setAllBusinesses([]);
+        setActiveBizId('');
       }
     });
 
     return () => {
+      mounted = false;
       unsubscribe();
     };
   }, []);
@@ -810,7 +821,10 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const login = useCallback(
-    async (email: string, password?: string, name?: string, role: UserRole = 'owner') => {
+    async (email: string, password: string, name?: string, role: UserRole = 'owner') => {
+      if (!email.trim() || !password?.trim()) {
+        return { success: false, error: 'Email and password are required.' };
+      }
       const client = getSupabaseClient();
       if (client && password) {
         const res = await signInWithEmail(email, password);
@@ -876,24 +890,15 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const switchRole = useCallback(
     (newRole: UserRole) => {
+      // Role simulation is restricted to local demo sessions; it can never create an identity.
+      if (import.meta.env.PROD) return;
       setUser((prev) => {
-        if (!prev) {
-          return {
-            id: 'usr_founder',
-            email: 'founder@ayurvedicremedies.in',
-            name: 'Workspace Member',
-            role: newRole,
-          };
-        }
-        return {
-          ...prev,
-          role: newRole,
-        };
+        if (!prev?.is_demo) return prev;
+        return { ...prev, role: newRole };
       });
-      showToast('info', `Active role switched to: ${newRole.toUpperCase()}`);
-      addAuditLog('ROLE_SWITCH', `Switched active role to: ${newRole}`);
+      showToast('info', 'Role simulation is available only in local demo mode.');
     },
-    [addAuditLog, showToast]
+    [showToast]
   );
 
   // Customer CRUD
