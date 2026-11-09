@@ -1202,7 +1202,21 @@ app.delete("/api/business/:businessId", requireAuth({ allowedRoles: ["owner"] })
 });
 
 app.get("/healthz", (_req, res) => {
-  res.status(200).json({ status: "ok", service: "business-doctor-ai" });
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+  res.status(200).json({
+    status: "ok",
+    service: "business-doctor-ai",
+    configuration: {
+      supabaseAuth: Boolean(supabaseUrl && supabaseAnonKey),
+      supabaseAdmin: Boolean(supabaseUrl && supabaseServiceRoleKey),
+      geminiAI: Boolean(process.env.GEMINI_API_KEY),
+      whatsappWebhook: Boolean(process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN && process.env.WHATSAPP_APP_SECRET),
+      metaApp: Boolean((process.env.META_APP_ID || process.env.VITE_META_APP_ID) && process.env.WHATSAPP_APP_SECRET),
+    },
+  });
 });
 
 // ==============================================================================
