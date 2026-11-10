@@ -1012,7 +1012,7 @@ whatsappConnectorRouter.get('/status', (req: Request, res: Response) => {
 /**
  * 5. POST /api/connectors/whatsapp/disconnect
  */
-whatsappConnectorRouter.post('/disconnect', (req: Request, res: Response) => {
+whatsappConnectorRouter.post('/disconnect', async (req: Request, res: Response) => {
   const businessId = resolveBusinessTenant(req);
   if (!businessId) {
     return res.status(400).json({ error: 'business_id_required' });
