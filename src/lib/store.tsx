@@ -3867,6 +3867,9 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
       if (membershipError || !memberships?.length) {
         setAllBusinesses([]);
         setActiveBizId('');
+        if (!membershipError && !memberships?.length) {
+          setIsOnboardingOpen(true);
+        }
         return;
       }
 
