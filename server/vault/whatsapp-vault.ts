@@ -117,8 +117,7 @@ export async function storeWhatsAppCredentials(
 
   const existing = credentialsVault.get(businessId);
   const now = new Date().toISOString();
-
-  credentialsVault.set(businessId, {
+  const saved: WhatsAppBusinessCredentials = {
     ...credentials,
     businessId,
     connectionStatus: credentials.connectionStatus || 'CONNECTED',
@@ -126,11 +125,10 @@ export async function storeWhatsAppCredentials(
     lastSuccessfulOutboundAt: credentials.lastSuccessfulOutboundAt ?? existing?.lastSuccessfulOutboundAt ?? null,
     lastError: credentials.lastError ?? null,
     errorCount: credentials.errorCount ?? existing?.errorCount ?? 0,
-  });
+  };
 
   const supabase = getServerSupabaseClient();
   if (!supabase) throw new Error('Supabase service-role client unavailable; refusing memory-only token storage.');
-  const saved = credentialsVault.get(businessId)!;
   const { error: vaultError } = await supabase.from('oauth_token_vault').upsert({
     id: `${businessId}:whatsapp_business`, business_id: businessId, provider: 'whatsapp_business',
     encrypted_access_token: encryptToken(credentials.accessToken), encrypted_refresh_token: null,
@@ -150,23 +148,7 @@ export async function storeWhatsAppCredentials(
   }, { onConflict: 'business_id,provider' });
   if (vaultError) throw new Error('Could not securely save WhatsApp token: ' + vaultError.message);
 
-  const { error: integrationError } = await supabase.from('business_integrations').upsert({
-    business_id: businessId, provider: 'whatsapp_business',
-    provider_account_id: credentials.phoneNumberId,
-    provider_account_name: credentials.verifiedName || credentials.displayPhoneNumber || 'WhatsApp Business',
-    status: 'CONNECTED', is_test_mode: Boolean(credentials.isTestMode),
-    scopes: ['whatsapp_business_messaging', 'whatsapp_business_management'],
-    connected_at: credentials.connectedAt,
-    last_health_check_at: credentials.lastHealthCheckAt || credentials.connectedAt,
-    last_health_status: credentials.lastHealthStatus || 'healthy',
-    metadata: {
-      waba_id: credentials.wabaId, display_phone_number: credentials.displayPhoneNumber,
-      quality_rating: credentials.qualityRating, code_verification_status: credentials.codeVerificationStatus,
-      messaging_limit_tier: credentials.messagingLimitTier, webhook_subscribed: credentials.webhookSubscribed,
-      connection_status: 'CONNECTED',
-    }, updated_at: now,
-  });
-  if (integrationError) throw new Error('Could not persist WhatsApp integration metadata: ' + integrationError.message);
+  credentialsVault.set(businessId, saved);
 }
 
 export function getWhatsAppCredentials(businessId: string): WhatsAppBusinessCredentials | null {
@@ -176,16 +158,13 @@ export function getWhatsAppCredentials(businessId: string): WhatsAppBusinessCred
 
 export async function deleteWhatsAppCredentials(businessId: string): Promise<boolean> {
   if (!businessId) return false;
-  const existed = credentialsVault.delete(businessId);
+  const existed = credentialsVault.has(businessId);
 
   const supabase = getServerSupabaseClient();
   if (!supabase) throw new Error('Supabase service-role client unavailable; cannot disconnect WhatsApp securely.');
   const { error: vaultError } = await supabase.from('oauth_token_vault').delete().eq('business_id', businessId).eq('provider', 'whatsapp_business');
   if (vaultError) throw new Error('Could not delete encrypted WhatsApp token: ' + vaultError.message);
-  const { error: integrationError } = await supabase.from('business_integrations')
-    .update({ status: 'DISCONNECTED', disconnected_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('business_id', businessId).eq('provider', 'whatsapp_business');
-  if (integrationError) throw new Error('Could not update WhatsApp integration: ' + integrationError.message);
+  credentialsVault.delete(businessId);
 
   return existed;
 }
