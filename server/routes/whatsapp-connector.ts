@@ -63,17 +63,21 @@ const pendingEmbeddedSessions = new Map<string, PendingEmbeddedSession>();
  * Resolves the business tenant ID from headers, query, or body.
  */
 function resolveBusinessTenant(req: Request): string | null {
-  const headerId = req.headers['x-business-id'];
-  if (typeof headerId === 'string' && headerId.trim()) {
-    return headerId.trim();
+  // The verified auth context is the sole source of tenant identity.
+  // Never trust caller-controlled headers, body fields, or query parameters.
+  const authenticatedBusinessId = (req as any).auth?.businessId;
+  if (!authenticatedBusinessId) return null;
+
+  const requestedIds = [
+    req.headers['x-business-id'],
+    req.body?.businessId,
+    req.query?.businessId,
+  ].filter((value) => typeof value === 'string' && value.trim()) as string[];
+
+  if (requestedIds.some((value) => value.trim() !== authenticatedBusinessId)) {
+    return null;
   }
-  if (req.body?.businessId && typeof req.body.businessId === 'string') {
-    return req.body.businessId.trim();
-  }
-  if (req.query?.businessId && typeof req.query.businessId === 'string') {
-    return req.query.businessId.trim();
-  }
-  return (req as any).auth?.businessId || null;
+  return authenticatedBusinessId;
 }
 
 /**
@@ -544,61 +548,11 @@ whatsappConnectorRouter.post('/authorize', async (req: Request, res: Response) =
   });
   updateWhatsAppConnectionStatus(businessId, 'CONNECTING');
 
-  // Handle Developer Sandbox Mode
+  // Do not create synthetic sandbox credentials. All connections must be verified against Meta.
   if (isTestMode) {
-    await storeWhatsAppCredentials(businessId, {
-      businessId,
-      phoneNumberId,
-      wabaId: wabaId || `waba_${phoneNumberId}`,
-      accessToken,
-      displayPhoneNumber: '+91 98765 43210',
-      verifiedName: 'WhatsApp Sandbox Account',
-      qualityRating: 'GREEN',
-      codeVerificationStatus: 'VERIFIED',
-      messagingLimitTier: 'TIER_1K',
-      webhookSubscribed: true,
-      connectedAt: now,
-      lastHealthCheckAt: now,
-      lastHealthStatus: 'healthy',
-      connectionStatus: 'CONNECTED',
-      isTestMode: true,
-    });
-
-    registerWhatsAppTenantMapping({
-      businessId,
-      phoneNumberId,
-      wabaId: wabaId || `waba_${phoneNumberId}`,
-      displayPhoneNumber: '+91 98765 43210',
-      businessName: 'WhatsApp Sandbox Account',
-    });
-
-    recordWhatsAppAudit({
-      business_id: businessId,
-      action: 'connection_completed',
-      details: `Sandbox WhatsApp connector authorized successfully.`,
-      entity_type: 'whatsapp_connection',
-      metadata: { phoneNumberId, isTestMode: true },
-    });
-
-    return res.status(200).json({
-      success: true,
-      isSandbox: true,
-      message: 'WhatsApp Business sandbox account connected successfully.',
-      connection: {
-        businessId,
-        provider: 'whatsapp_business',
-        status: 'CONNECTED',
-        phoneNumberId,
-        wabaId: wabaId || `waba_${phoneNumberId}`,
-        displayPhoneNumber: '+91 98765 43210',
-        verifiedName: 'WhatsApp Sandbox Account',
-        qualityRating: 'GREEN',
-        codeVerificationStatus: 'VERIFIED',
-        messagingLimitTier: 'TIER_1K',
-        webhookSubscribed: true,
-        connectedAt: now,
-        isTestMode: true,
-      },
+    return res.status(400).json({
+      error: 'sandbox_connection_disabled',
+      message: 'Synthetic WhatsApp sandbox connections are disabled. Connect a real Meta WhatsApp Business asset through Embedded Signup.',
     });
   }
 
