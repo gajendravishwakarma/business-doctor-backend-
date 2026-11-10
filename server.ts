@@ -6,6 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import { requireAuth } from "./server/auth";
 import { whatsappWebhookRouter } from "./server/webhooks/whatsapp";
 import { whatsappConnectorRouter } from "./server/routes/whatsapp-connector";
+import { initializeWhatsAppVault } from "./server/vault/whatsapp-vault";
 import { connectorAssistantRouter } from "./server/routes/connector-assistant";
 import { businessOnboardingRouter } from "./server/routes/business-onboarding";
 import { authRouter } from "./server/routes/auth";
@@ -1254,6 +1255,7 @@ async function startServer() {
     });
   }
 
+  await initializeWhatsAppVault();
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Business Doctor AI server listening on port ${PORT}`);
   });
