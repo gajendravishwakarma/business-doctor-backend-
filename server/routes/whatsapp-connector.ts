@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express';
+import { requireAuth } from '../auth';
 import {
   storeWhatsAppCredentials,
   getWhatsAppCredentials,
@@ -113,6 +114,9 @@ whatsappConnectorRouter.get('/config', (req: Request, res: Response) => {
     ...config,
   });
 });
+
+// Keep public config readable; secure every operation with verified tenant membership.
+whatsappConnectorRouter.use(requireAuth({ requireBusiness: true }));
 
 /**
  * 0b. POST /api/connectors/whatsapp/embedded-signup/start
@@ -338,7 +342,7 @@ whatsappConnectorRouter.post('/embedded-signup/select-asset', async (req: Reques
       webhookSubscribed = true;
     }
 
-    storeWhatsAppCredentials(businessId, {
+    await storeWhatsAppCredentials(businessId, {
       businessId,
       phoneNumberId: selectedPhone.id,
       wabaId: targetWabaId,
@@ -555,7 +559,7 @@ whatsappConnectorRouter.post('/authorize', async (req: Request, res: Response) =
 
   // Handle Developer Sandbox Mode
   if (isTestMode) {
-    storeWhatsAppCredentials(businessId, {
+    await storeWhatsAppCredentials(businessId, {
       businessId,
       phoneNumberId,
       wabaId: wabaId || `waba_${phoneNumberId}`,
@@ -626,7 +630,7 @@ whatsappConnectorRouter.post('/authorize', async (req: Request, res: Response) =
       }
     }
 
-    storeWhatsAppCredentials(businessId, {
+    await storeWhatsAppCredentials(businessId, {
       businessId,
       phoneNumberId,
       wabaId: wabaId || `waba_${phoneNumberId}`,
@@ -1015,7 +1019,7 @@ whatsappConnectorRouter.post('/disconnect', (req: Request, res: Response) => {
   }
 
   updateWhatsAppConnectionStatus(businessId, 'DISCONNECTING');
-  const deleted = deleteWhatsAppCredentials(businessId);
+  const deleted = await deleteWhatsAppCredentials(businessId);
 
   for (const [key, mapping] of whatsappTenantRegistry.entries()) {
     if (mapping.businessId === businessId) {
