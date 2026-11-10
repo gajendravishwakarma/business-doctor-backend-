@@ -123,11 +123,16 @@ whatsappConnectorRouter.use(requireAuth({ requireBusiness: true }));
  * Initializes official Meta Embedded Signup flow for tenant.
  */
 whatsappConnectorRouter.post('/embedded-signup/start', (req: Request, res: Response) => {
-  const businessId = resolveBusinessTenant(req);
+  const businessId = req.auth?.businessId;
   if (!businessId) {
-    return res.status(400).json({
-      error: 'business_id_required',
-      message: 'Active business context is required (x-business-id header missing).',
+    return res.status(400).json({ error: 'business_id_required', message: 'Verified active business context is required.' });
+  }
+  const appId = process.env.META_APP_ID || process.env.VITE_META_APP_ID;
+  const configId = process.env.META_WHATSAPP_CONFIG_ID || process.env.VITE_META_WHATSAPP_CONFIG_ID;
+  if (!appId || !configId) {
+    return res.status(503).json({
+      error: 'meta_embedded_signup_not_configured',
+      message: 'Meta App ID and WhatsApp Embedded Signup Config ID must be configured before connecting WhatsApp.',
     });
   }
 
@@ -144,8 +149,8 @@ whatsappConnectorRouter.post('/embedded-signup/start', (req: Request, res: Respo
     success: true,
     state: 'AUTHORIZING',
     sessionToken,
-    appId: process.env.META_APP_ID || process.env.VITE_META_APP_ID || '102938475610293',
-    configId: process.env.META_WHATSAPP_CONFIG_ID || process.env.VITE_META_WHATSAPP_CONFIG_ID || 'cnf_doctor_embedded_01',
+    appId,
+    configId,
     businessId,
     timestamp: new Date().toISOString(),
   });
@@ -157,12 +162,9 @@ whatsappConnectorRouter.post('/embedded-signup/start', (req: Request, res: Respo
  * Transitions: AUTHORIZING -> AUTHORIZED -> ASSET_SELECTION | CONNECTED
  */
 whatsappConnectorRouter.post('/embedded-signup/exchange', async (req: Request, res: Response) => {
-  const businessId = resolveBusinessTenant(req);
+  const businessId = req.auth?.businessId;
   if (!businessId) {
-    return res.status(400).json({
-      error: 'business_id_required',
-      message: 'Active business context is required to link WhatsApp account (x-business-id header missing).',
-    });
+    return res.status(400).json({ error: 'business_id_required', message: 'Verified active business context is required.' });
   }
 
   const code = req.body?.code || req.body?.authCode;
@@ -207,39 +209,25 @@ whatsappConnectorRouter.post('/embedded-signup/exchange', async (req: Request, r
     }
 
     if (!resolvedWabaId) {
-      resolvedWabaId = `waba_${businessId.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      return res.status(400).json({
+        error: 'meta_waba_not_resolved',
+        message: 'Meta authorization succeeded, but no real WhatsApp Business Account ID was returned. Check the Meta Embedded Signup configuration and reconnect.',
+      });
     }
 
-    // 3. Discover eligible phone number assets for this WABA
-    let phoneNumbers: any[] = [];
-    if (phoneNumberId) {
-      phoneNumbers.push({
-        id: phoneNumberId,
-        displayPhoneNumber: '+91 98765 43210',
-        verifiedName: 'WhatsApp Business Line',
-        qualityRating: 'GREEN',
-        codeVerificationStatus: 'VERIFIED',
-        messagingLimitTier: 'TIER_1K',
+    // Discover real phone-number assets from Meta. Never fabricate IDs or profile details.
+    const phoneNumbers = await fetchMetaWabaPhoneNumbers(resolvedWabaId, accessToken);
+    if (!Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
+      return res.status(400).json({
+        error: 'no_eligible_phone_numbers',
+        message: 'Meta returned no eligible phone numbers for this WhatsApp Business Account.',
       });
-    } else {
-      try {
-        phoneNumbers = await fetchMetaWabaPhoneNumbers(resolvedWabaId, accessToken);
-      } catch (err) {
-        console.warn('Could not fetch WABA phone numbers:', err);
-      }
-
-      if (!phoneNumbers || phoneNumbers.length === 0) {
-        phoneNumbers = [
-          {
-            id: `phone_${resolvedWabaId}`,
-            displayPhoneNumber: '+91 98765 43210',
-            verifiedName: 'WhatsApp Business Line',
-            qualityRating: 'GREEN',
-            codeVerificationStatus: 'VERIFIED',
-            messagingLimitTier: 'TIER_1K',
-          },
-        ];
-      }
+    }
+    if (phoneNumberId && !phoneNumbers.some((p: any) => p.id === phoneNumberId)) {
+      return res.status(403).json({
+        error: 'phone_number_not_in_waba',
+        message: 'The selected phone number was not returned by Meta for this WhatsApp Business Account.',
+      });
     }
 
     const eligibleAssets = phoneNumbers.map((p) => ({
@@ -293,12 +281,12 @@ whatsappConnectorRouter.post('/embedded-signup/exchange', async (req: Request, r
  * Transitions: ASSET_SELECTION -> CONNECTED
  */
 whatsappConnectorRouter.post('/embedded-signup/select-asset', async (req: Request, res: Response) => {
-  const businessId = resolveBusinessTenant(req);
+  const businessId = req.auth?.businessId;
   if (!businessId) {
     return res.status(400).json({ error: 'business_id_required' });
   }
 
-  const { phoneNumberId, wabaId, sessionToken } = req.body || {};
+  const { phoneNumberId, sessionToken } = req.body || {};
   if (!phoneNumberId) {
     return res.status(400).json({ error: 'phone_number_id_required' });
   }
@@ -314,7 +302,7 @@ whatsappConnectorRouter.post('/embedded-signup/select-asset', async (req: Reques
 
   const creds = getWhatsAppCredentials(businessId);
   const accessToken = session?.accessToken || creds?.accessToken;
-  const targetWabaId = wabaId || session?.wabaId || creds?.wabaId;
+  const targetWabaId = session?.wabaId || creds?.wabaId;
 
   if (!accessToken || !targetWabaId) {
     return res.status(400).json({
@@ -324,22 +312,21 @@ whatsappConnectorRouter.post('/embedded-signup/select-asset', async (req: Reques
   }
 
   const now = new Date().toISOString();
-  const selectedPhone = session?.assets.find((p: any) => p.id === phoneNumberId) || {
-    id: phoneNumberId,
-    displayPhoneNumber: '+91 98765 43210',
-    verifiedName: 'Selected WhatsApp Line',
-    qualityRating: 'GREEN',
-    codeVerificationStatus: 'VERIFIED',
-    messagingLimitTier: 'TIER_1K',
-  };
+  const selectedPhone = session?.assets.find((p: any) => p.id === phoneNumberId);
+  if (!selectedPhone) {
+    return res.status(403).json({
+      error: 'phone_number_not_in_authorized_assets',
+      message: 'Select a phone number returned by Meta during this active signup session.',
+    });
+  }
 
   try {
     let webhookSubscribed = false;
     try {
       const subRes = await subscribeWabaToApp(targetWabaId, accessToken);
-      webhookSubscribed = subRes.success;
-    } catch {
-      webhookSubscribed = true;
+      webhookSubscribed = Boolean(subRes.success);
+    } catch (subscribeError) {
+      console.error('Meta WABA webhook subscription failed:', subscribeError);
     }
 
     await storeWhatsAppCredentials(businessId, {
