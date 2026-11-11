@@ -37,20 +37,17 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   // Form State
   const [name, setName] = useState('');
   const [businessType, setBusinessType] = useState<BusinessType>('hybrid');
-  const [industry, setIndustry] = useState('Health & Wellness');
-  const [location, setLocation] = useState('Bengaluru, Karnataka');
+  const [industry, setIndustry] = useState('');
+  const [location, setLocation] = useState('');
   const [country, setCountry] = useState('India');
   const [currency, setCurrency] = useState('INR');
   const [currencySymbol, setCurrencySymbol] = useState('₹');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
-  const [businessAgeStage, setBusinessAgeStage] = useState<BusinessAgeStage>('growing');
-  const [dataMaturityMode, setDataMaturityMode] = useState<DataMaturityMode>('existing_partial');
+  const [businessAgeStage, setBusinessAgeStage] = useState<BusinessAgeStage>('new');
+  const [dataMaturityMode, setDataMaturityMode] = useState<DataMaturityMode>('new_no_data');
   const [targetCustomers, setTargetCustomers] = useState('');
-  const [monthlyRevenueTarget, setMonthlyRevenueTarget] = useState<number>(500000);
-  const [selectedGoals, setSelectedGoals] = useState<string[]>([
-    'Increase monthly revenue & profit margins',
-    'Automate WhatsApp lead response time',
-  ]);
+  const [monthlyRevenueTarget, setMonthlyRevenueTarget] = useState<number>(0);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
 
   const industries = [
     'Health & Wellness',
@@ -162,9 +159,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       business_age_stage: businessAgeStage,
       data_maturity_mode: dataMaturityMode,
       business_age_months: ageMonths,
-      target_customers: targetCustomers || 'Local and online consumers looking for quality offerings',
+      target_customers: targetCustomers.trim(),
       business_goals: selectedGoals,
-      monthly_revenue_target: Number(monthlyRevenueTarget) || 500000,
+      monthly_revenue_target: Number(monthlyRevenueTarget) || 0,
     });
 
     if (onComplete) {
