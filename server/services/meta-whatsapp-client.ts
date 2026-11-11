@@ -73,6 +73,11 @@ export interface OutgoingMessageResponse {
 const META_GRAPH_VERSION = 'v21.0';
 const META_GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
+// Mock credentials and OAuth shortcuts are permitted only in automated tests.
+function isMetaMockMode(): boolean {
+  return process.env.NODE_ENV === 'test' || process.env.VITEST === 'true' || process.env.VITEST === '1';
+}
+
 /**
  * Verify a Phone Number ID and System User Access Token against Meta Graph API
  */
@@ -101,7 +106,7 @@ export async function verifyMetaPhoneNumber(
     });
   }
 
-  if (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_')) {
+  if (isMetaMockMode() && (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_'))) {
     return {
       id: phoneNumberId,
       displayPhoneNumber: '+91 98765 43210',
@@ -152,7 +157,7 @@ export async function verifyMetaWaba(
   wabaId: string,
   accessToken: string
 ): Promise<VerifiedWabaData> {
-  if (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_')) {
+  if (isMetaMockMode() && (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_'))) {
     return {
       id: wabaId,
       name: 'Primary WhatsApp Business Account',
@@ -199,7 +204,7 @@ export async function subscribeWabaToApp(
   wabaId: string,
   accessToken: string
 ): Promise<{ success: boolean; message?: string }> {
-  if (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_')) {
+  if (isMetaMockMode() && (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_'))) {
     return { success: true, message: 'WABA subscribed to app webhooks (mock).' };
   }
 
@@ -274,7 +279,7 @@ export async function sendMetaWhatsAppMessage(
   }
 
   // Test token / mock response for test suites
-  if (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_')) {
+  if (isMetaMockMode() && (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_'))) {
     const mockWamid = `wamid.HBgL${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     return {
       messaging_product: 'whatsapp',
@@ -344,13 +349,14 @@ export async function exchangeMetaAuthCode(
     throw new Error('Authorization code is required for Meta OAuth exchange.');
   }
 
-  // Test mode & mock code bypass for developer sandbox and test suites
+  // Mock OAuth codes are accepted only in automated test environments.
   if (
-    code.startsWith('mock_') ||
-    code.startsWith('test_') ||
-    code.startsWith('code_sandbox') ||
-    code.startsWith('AQD_') ||
-    code.startsWith('AQ')
+    isMetaMockMode() &&
+    (code.startsWith('mock_') ||
+      code.startsWith('test_') ||
+      code.startsWith('code_sandbox') ||
+      code.startsWith('AQD_') ||
+      code.startsWith('AQ'))
   ) {
     return {
       accessToken: `EAAG_test_embedded_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -406,7 +412,7 @@ export async function inspectMetaToken(
   inputToken: string,
   appAccessToken?: string
 ): Promise<MetaDebugTokenResponse> {
-  if (inputToken.startsWith('EAAG_test_') || inputToken.startsWith('test_token_')) {
+  if (isMetaMockMode() && (inputToken.startsWith('EAAG_test_') || inputToken.startsWith('test_token_'))) {
     return {
       isValid: true,
       appId: process.env.META_APP_ID || 'test_app_id_101',
@@ -469,7 +475,7 @@ export async function fetchMetaWabaPhoneNumbers(
   wabaId: string,
   accessToken: string
 ): Promise<VerifiedPhoneData[]> {
-  if (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_')) {
+  if (isMetaMockMode() && (accessToken.startsWith('EAAG_test_') || accessToken.startsWith('test_token_'))) {
     return [
       {
         id: `phone_${wabaId.replace(/^waba_/, '') || 'sandbox_primary'}`,
