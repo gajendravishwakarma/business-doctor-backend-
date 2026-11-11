@@ -136,17 +136,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     setIsCreating(true);
     try {
 
-    let ageMonths = 0;
-    if (dataMaturityMode === 'new_no_data') {
-      ageMonths = 0;
-    } else if (dataMaturityMode === 'existing_no_data') {
-      ageMonths = businessAgeStage === 'established' ? 36 : businessAgeStage === 'growing' ? 24 : 12;
-    } else if (dataMaturityMode === 'existing_partial') {
-      ageMonths = businessAgeStage === 'established' ? 36 : businessAgeStage === 'growing' ? 18 : 6;
-    } else if (dataMaturityMode === 'existing_complete') {
-      ageMonths = businessAgeStage === 'established' ? 48 : businessAgeStage === 'growing' ? 24 : 12;
-    }
-
+    // Exact age in months is not collected here; keep it unknown rather than estimating.
     await createBusiness({
       name: name.trim(),
       business_type: businessType,
@@ -158,7 +148,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       timezone,
       business_age_stage: businessAgeStage,
       data_maturity_mode: dataMaturityMode,
-      business_age_months: ageMonths,
       target_customers: targetCustomers.trim(),
       business_goals: selectedGoals,
       monthly_revenue_target: Number(monthlyRevenueTarget) || 0,
@@ -485,7 +474,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   Ready to Activate Business Doctor AI
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Your customized AI operating system is ready to launch Day 1 of the 5-Day Business Transformation Trial.
+                  Your business workspace is ready. Connect real data to begin evidence-based analysis.
                 </p>
               </div>
 
@@ -512,14 +501,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-slate-400">Monthly Revenue Goal</span>
-                  <span className="font-bold text-emerald-400">{currencySymbol}{monthlyRevenueTarget.toLocaleString('en-IN')}</span>
+                  <span className="font-medium text-slate-400">Not provided</span>
                 </div>
               </div>
 
               <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-800/40 text-xs text-indigo-200 flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
                 <div>
-                  <strong>Day 0 Baseline Memory will be initialized</strong>. Next, you can import past CSV/POS sales records in the Data tab or start logging orders immediately.
+                  <strong>An unverified Day 0 setup record will be initialized</strong>. No historical performance will be assumed; import records or start logging orders to build a verified baseline.
                 </div>
               </div>
             </div>
