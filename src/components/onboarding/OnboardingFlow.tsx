@@ -423,31 +423,15 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           {step === 3 && (
             <div className="space-y-5 animate-in fade-in duration-200">
               <div>
-                <h3 className="font-bold text-lg text-slate-100">Target Customers & Financial Goals</h3>
+                <h3 className="font-bold text-lg text-slate-100">Business Audience (Optional)</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Define your monthly target revenue and primary operational objectives.
+                  Add audience details only if you already know them. Business Doctor AI can learn from connected business data.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                  Monthly Gross Revenue Target ({currencySymbol})
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-3 text-slate-400 font-bold text-sm">{currencySymbol}</span>
-                  <input
-                    type="number"
-                    value={monthlyRevenueTarget}
-                    onChange={(e) => setMonthlyRevenueTarget(Number(e.target.value))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold text-emerald-400 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Target Customer Persona
+                  Target Customer Persona (Optional)
                 </label>
                 <textarea
                   rows={2}
