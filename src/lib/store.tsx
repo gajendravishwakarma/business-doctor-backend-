@@ -778,16 +778,16 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (newBiz.data_maturity_mode === 'new_no_data') {
         baselineTitle = `Day 0 Baseline: Start From Today (${newBiz.name})`;
-        baselineContent = `New business foundation initialized. Baseline established: Start From Today. No historical data exists or is assumed. All financial, order, customer, and operational tracking begins live from Day 0 (${newBiz.business_age_stage} stage, 0 months historical context). Target monthly revenue: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.`;
+        baselineContent = `New business foundation initialized. Baseline established: Start From Today. No historical data exists or is assumed. All financial, order, customer, and operational tracking begins live from Day 0 (${newBiz.business_age_stage} stage, 0 months historical context). ${newBiz.monthly_revenue_target > 0 ? `Owner-set monthly revenue target: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.` : 'No revenue target supplied; target remains unknown.'}`;
       } else if (newBiz.data_maturity_mode === 'existing_no_data') {
         baselineTitle = `Day 0 Baseline: Start From Today (${newBiz.name})`;
-        baselineContent = `Existing business profile initialized without prior historical records (${newBiz.business_age_stage} stage, ${ageMonths} months operational age). Baseline established: Start From Today. No historical trends or unverified metrics are assumed or fabricated. All financial and operational performance tracking commences live from today. Target monthly revenue: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.`;
+        baselineContent = `Existing business profile initialized without prior historical records (${newBiz.business_age_stage} stage, ${ageMonths} months operational age). Baseline established: Start From Today. No historical trends or unverified metrics are assumed or fabricated. All financial and operational performance tracking commences live from today. ${newBiz.monthly_revenue_target > 0 ? `Owner-set monthly revenue target: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.` : 'No revenue target supplied; target remains unknown.'}`;
       } else if (newBiz.data_maturity_mode === 'existing_partial') {
         baselineTitle = `Day 0 Baseline: Partial Historical Data (${newBiz.name})`;
-        baselineContent = `Existing business profile initialized with partial records (${newBiz.business_age_stage} stage, ${ageMonths} months operational age). Unverified historical periods are explicitly marked as Insufficient Data to prevent false trend assumptions. Target monthly revenue: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.`;
+        baselineContent = `Existing business profile initialized with partial records (${newBiz.business_age_stage} stage, ${ageMonths} months operational age). Unverified historical periods are explicitly marked as Insufficient Data to prevent false trend assumptions. ${newBiz.monthly_revenue_target > 0 ? `Owner-set monthly revenue target: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.` : 'No revenue target supplied; target remains unknown.'}`;
       } else {
         baselineTitle = `Day 0 Baseline: Complete Historical Data (${newBiz.name})`;
-        baselineContent = `Existing business profile configured for complete historical dataset synchronization (${newBiz.business_age_stage} stage, ${ageMonths} months operational age). Metric auditing will verify all ingested ledgers against source records. Target monthly revenue: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.`;
+        baselineContent = `Existing business profile configured for complete historical dataset synchronization (${newBiz.business_age_stage} stage, ${ageMonths} months operational age). Metric auditing will verify all ingested ledgers against source records. ${newBiz.monthly_revenue_target > 0 ? `Owner-set monthly revenue target: ${newBiz.currency_symbol}${newBiz.monthly_revenue_target.toLocaleString('en-IN')}.` : 'No revenue target supplied; target remains unknown.'}`;
       }
 
       // Create initial Day 0 baseline memory entry
@@ -798,18 +798,18 @@ export const BusinessStoreProvider: React.FC<{ children: React.ReactNode }> = ({
         period: 'day_0',
         title: baselineTitle,
         content: baselineContent,
-        confidence_score: 95,
+        confidence_score: 0,
         outcome_recorded: isStartFromToday
           ? 'Start From Today baseline established. Zero fabricated historical records.'
           : 'Historical data baseline registered for audit verification.',
         created_at: new Date().toISOString(),
-        is_verified: true,
+        is_verified: false,
         provenance: {
           source_type: 'live_event',
           source_table: 'businesses',
           source_record_id: newId,
           evidence_summary: `Day 0 baseline registered during onboarding for ${newBiz.name}.`,
-          has_sufficient_data: true,
+          has_sufficient_data: false,
         },
       };
       setMemory([day0Entry]);
