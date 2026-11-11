@@ -1,4 +1,3 @@
-import { BusinessIntegration } from '../../src/types/database';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import {
   WhatsAppConnectionRecord,
@@ -357,8 +356,8 @@ export function getWhatsAppWebhookDashboardHealth(
 }
 
 export const whatsAppVault = {
-  storeCredential: (creds: { businessId: string; phoneNumberId: string; accessToken: string; wabaId?: string; isTestMode?: boolean }) => {
-    storeWhatsAppCredentials(creds.businessId, {
+  storeCredential: async (creds: { businessId: string; phoneNumberId: string; accessToken: string; wabaId?: string; isTestMode?: boolean }) => {
+    await storeWhatsAppCredentials(creds.businessId, {
       businessId: creds.businessId,
       phoneNumberId: creds.phoneNumberId,
       accessToken: creds.accessToken,
