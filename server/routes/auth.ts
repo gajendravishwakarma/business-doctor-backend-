@@ -37,6 +37,24 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
   }
 });
 
+
+authRouter.post('/verify', async (req: Request, res: Response) => {
+  const tokenHash = typeof req.body?.token_hash === 'string' ? req.body.token_hash : '';
+  const type = typeof req.body?.type === 'string' ? req.body.type : '';
+  if (!tokenHash || !['signup', 'email', 'email_change'].includes(type)) {
+    return res.status(400).json({ success: false, message: 'Confirmation link invalid ya expire ho gaya hai.' });
+  }
+  const supabase = getPublicAuthClient();
+  if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as 'signup' | 'email' | 'email_change' });
+    if (error || !data.session) return res.status(400).json({ success: false, message: error?.message || 'Email verification complete nahi hui.' });
+    return res.json({ success: true, session: { access_token: data.session.access_token, refresh_token: data.session.refresh_token, expires_at: data.session.expires_at } });
+  } catch {
+    return res.status(500).json({ success: false, message: 'Email verification abhi complete nahi ho saki.' });
+  }
+});
+
 authRouter.post('/login', async (req: Request, res: Response) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
