@@ -20,8 +20,9 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
   const supabase = getPublicAuthClient();
   if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
   try {
+    const redirectTo = process.env.AUTH_EMAIL_REDIRECT_URL || 'https://gajendravishwakarma.github.io/business-doctor-Ai/';
     const { data, error } = await supabase.auth.signUp({
-      email, password, options: { data: { full_name: name } },
+      email, password, options: { data: { full_name: name }, emailRedirectTo: redirectTo },
     });
     if (error) return res.status(400).json({ success: false, message: error.message });
     return res.status(201).json({
