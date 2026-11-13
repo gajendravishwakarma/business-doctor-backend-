@@ -55,6 +55,24 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
   }
 });
 
+
+authRouter.post('/resend-verification', async (req: Request, res: Response) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!email || !/^\\S+@\\S+\\.\\S+$/.test(email)) {
+    return res.status(400).json({ success: false, message: 'Valid email address bharein.' });
+  }
+  const supabase = getPublicAuthClient();
+  if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
+  try {
+    const redirectTo = process.env.AUTH_EMAIL_REDIRECT_URL || 'https://gajendravishwakarma.github.io/business-doctor-Ai/';
+    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo } });
+    if (error) return res.status(400).json({ success: false, message: error.message });
+    return res.json({ success: true, message: 'Agar is email par verification pending hai, to naya confirmation email bhej diya gaya hai. Inbox aur Spam check karein.' });
+  } catch {
+    return res.status(500).json({ success: false, message: 'Verification email abhi resend nahi ho saka.' });
+  }
+});
+
 authRouter.post('/login', async (req: Request, res: Response) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
