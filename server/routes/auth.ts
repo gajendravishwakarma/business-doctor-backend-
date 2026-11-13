@@ -119,7 +119,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error || !data.session) return res.status(401).json({ success: false, message: 'Email/password check karein ya pehle email verify karein.' });
+    if (error || !data.session) {\n      const code = error?.code === 'email_not_confirmed' ? 'email_not_confirmed' : 'invalid_credentials';\n      const message = code === 'email_not_confirmed' ? 'Email not confirmed' : 'Invalid login credentials';\n      return res.status(401).json({ success: false, code, message });\n    }
     return res.json({
       success: true,
       user: { id: data.user.id, email: data.user.email },
