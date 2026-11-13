@@ -58,7 +58,7 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
 
 authRouter.post('/resend-verification', async (req: Request, res: Response) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  if (!email || !/^\\S+@\\S+\\.\\S+$/.test(email)) {
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     return res.status(400).json({ success: false, message: 'Valid email address bharein.' });
   }
   const supabase = getPublicAuthClient();
@@ -76,7 +76,7 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
 
 authRouter.post('/forgot-password', async (req: Request, res: Response) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  if (!email || !/^\\S+@\\S+\\.\\S+$/.test(email)) {
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
     return res.status(400).json({ success: false, message: 'Valid registered email address bharein.' });
   }
   const supabase = getPublicAuthClient();
