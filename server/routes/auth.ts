@@ -41,13 +41,13 @@ authRouter.post('/signup', async (req: Request, res: Response) => {
 authRouter.post('/verify', async (req: Request, res: Response) => {
   const tokenHash = typeof req.body?.token_hash === 'string' ? req.body.token_hash : '';
   const type = typeof req.body?.type === 'string' ? req.body.type : '';
-  if (!tokenHash || !['signup', 'email', 'email_change'].includes(type)) {
+  if (!tokenHash || !['signup', 'email', 'email_change', 'recovery'].includes(type)) {
     return res.status(400).json({ success: false, message: 'Confirmation link invalid ya expire ho gaya hai.' });
   }
   const supabase = getPublicAuthClient();
   if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
   try {
-    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as 'signup' | 'email' | 'email_change' });
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as 'signup' | 'email' | 'email_change' | 'recovery' });
     if (error || !data.session) return res.status(400).json({ success: false, message: error?.message || 'Email verification complete nahi hui.' });
     return res.json({ success: true, session: { access_token: data.session.access_token, refresh_token: data.session.refresh_token, expires_at: data.session.expires_at } });
   } catch {
@@ -70,6 +70,44 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
     return res.json({ success: true, message: 'Agar is email par verification pending hai, to naya confirmation email bhej diya gaya hai. Inbox aur Spam check karein.' });
   } catch {
     return res.status(500).json({ success: false, message: 'Verification email abhi resend nahi ho saka.' });
+  }
+});
+
+
+authRouter.post('/forgot-password', async (req: Request, res: Response) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!email || !/^\\S+@\\S+\\.\\S+$/.test(email)) {
+    return res.status(400).json({ success: false, message: 'Valid registered email address bharein.' });
+  }
+  const supabase = getPublicAuthClient();
+  if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
+  try {
+    const redirectTo = process.env.AUTH_EMAIL_REDIRECT_URL || 'https://gajendravishwakarma.github.io/business-doctor-Ai/';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) return res.status(400).json({ success: false, message: error.message });
+    return res.json({ success: true, message: 'Agar is email par account hai, password reset link bhej diya gaya hai. Inbox aur Spam check karein.' });
+  } catch {
+    return res.status(500).json({ success: false, message: 'Password reset request abhi complete nahi ho saki.' });
+  }
+});
+
+authRouter.post('/update-password', async (req: Request, res: Response) => {
+  const accessToken = typeof req.body?.access_token === 'string' ? req.body.access_token : '';
+  const refreshToken = typeof req.body?.refresh_token === 'string' ? req.body.refresh_token : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!accessToken || !refreshToken || password.length < 8 || password.length > 128) {
+    return res.status(400).json({ success: false, message: 'Valid recovery session aur 8–128 character naya password zaroori hai.' });
+  }
+  const supabase = getPublicAuthClient();
+  if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
+  try {
+    const { error: sessionError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    if (sessionError) return res.status(401).json({ success: false, message: 'Password reset session invalid ya expire ho gaya hai. Naya reset link mangayein.' });
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return res.status(400).json({ success: false, message: error.message });
+    return res.json({ success: true, message: 'Password successfully update ho gaya. Ab naye password se Login karein.' });
+  } catch {
+    return res.status(500).json({ success: false, message: 'Password update abhi complete nahi ho saka.' });
   }
 });
 
