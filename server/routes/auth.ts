@@ -3,6 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 
 export const authRouter = Router();
 
+function normalizeAuthEmail(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.normalize('NFKC').replace(/[\\u200B-\\u200D\\uFEFF]/g, '').trim().toLowerCase();
+}
+
+function isPlausibleAuthEmail(email: string): boolean {
+  return email.length <= 254 && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+}
+
 function getPublicAuthClient() {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
   const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -57,9 +66,9 @@ authRouter.post('/verify', async (req: Request, res: Response) => {
 
 
 authRouter.post('/resend-verification', async (req: Request, res: Response) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-    return res.status(400).json({ success: false, message: 'Valid email address bharein.' });
+  const email = normalizeAuthEmail(req.body?.email);
+  if (!isPlausibleAuthEmail(email)) {
+    return res.status(400).json({ success: false, code: 'INVALID_EMAIL', message: 'Enter the registered email in name@example.com format.' });
   }
   const supabase = getPublicAuthClient();
   if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
@@ -75,9 +84,9 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
 
 
 authRouter.post('/forgot-password', async (req: Request, res: Response) => {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-    return res.status(400).json({ success: false, message: 'Valid registered email address bharein.' });
+  const email = normalizeAuthEmail(req.body?.email);
+  if (!isPlausibleAuthEmail(email)) {
+    return res.status(400).json({ success: false, code: 'INVALID_EMAIL', message: 'Enter the registered email in name@example.com format.' });
   }
   const supabase = getPublicAuthClient();
   if (!supabase) return res.status(503).json({ success: false, message: 'Supabase Auth server par configure nahi hai.' });
