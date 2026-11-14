@@ -5,11 +5,11 @@ export const authRouter = Router();
 
 function normalizeAuthEmail(value: unknown): string {
   if (typeof value !== 'string') return '';
-  return value.normalize('NFKC').replace(/[\\u200B-\\u200D\\uFEFF]/g, '').trim().toLowerCase();
+  return value.normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
 }
 
 function isPlausibleAuthEmail(email: string): boolean {
-  return email.length <= 254 && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function getPublicAuthClient() {
