@@ -75,21 +75,8 @@ export function createUuid(): string {
 // -----------------------------------------------------------------------------
 
 export function mapBusinessToDb(b: Business) {
-  let ageMonths = b.business_age_months;
-  if (ageMonths == null) {
-    if (b.data_maturity_mode === 'new_no_data') {
-      ageMonths = 0;
-    } else if (b.data_maturity_mode === 'existing_no_data') {
-      ageMonths = b.business_age_stage === 'established' ? 36 : b.business_age_stage === 'growing' ? 24 : 12;
-    } else if (b.data_maturity_mode === 'existing_partial') {
-      ageMonths = b.business_age_stage === 'established' ? 36 : b.business_age_stage === 'growing' ? 18 : 6;
-    } else if (b.data_maturity_mode === 'existing_complete') {
-      ageMonths = b.business_age_stage === 'established' ? 48 : b.business_age_stage === 'growing' ? 24 : 12;
-    } else {
-      ageMonths = b.business_age_stage === 'established' ? 36 : b.business_age_stage === 'growing' ? 18 : 6;
-    }
-  }
-
+  // A lifecycle stage is a broad classification, not an exact business age.
+  // Persist exact age only when supplied by the owner or a verified source.
   return {
     id: toValidUuid(b.id),
     name: b.name,
@@ -101,7 +88,7 @@ export function mapBusinessToDb(b: Business) {
     country: b.country || 'India',
     timezone: b.timezone || 'Asia/Kolkata',
     currency: b.currency || 'INR',
-    business_age_months: ageMonths,
+    business_age_months: b.business_age_months ?? null,
     onboarding_mode: b.business_age_stage || 'growing',
     data_maturity: b.data_maturity_mode || 'existing_partial',
     status: 'active',
