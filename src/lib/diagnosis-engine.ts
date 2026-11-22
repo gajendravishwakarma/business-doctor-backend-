@@ -33,7 +33,9 @@ export function calculateBusinessMetrics(
   const paidOrders = orders.filter((o) => o.payment_status === 'paid');
   const paidOrdersTotal = paidOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
-  const paidBookings = bookings.filter((b) => b.payment_status === 'paid' || b.status === 'confirmed');
+  // A confirmed appointment is an operational booking, not proof of payment.
+  // Count booking revenue only when the payment ledger explicitly marks it paid.
+  const paidBookings = bookings.filter((b) => b.payment_status === 'paid');
   const paidBookingsTotal = paidBookings.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
 
   const totalRevenue = paidOrdersTotal + paidBookingsTotal;
