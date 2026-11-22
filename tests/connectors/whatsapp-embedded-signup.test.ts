@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { app } from '../../server';
+import { memoryMembershipRegistry } from '../../server/auth';
 import http from 'node:http';
 import { whatsAppVault } from '../../server/vault/whatsapp-vault';
 import { resetConnectorRouterTestState } from '../../server/routes/whatsapp-connector';
@@ -16,7 +17,17 @@ async function makeRequest(
   const addr = server.address() as { port: number };
   const port = addr.port;
   const method = options.method || 'GET';
-  const headers = options.headers || {};
+  const headers = { ...(options.headers || {}) };
+  const businessId = headers['x-business-id'];
+  const testUserId = 'whatsapp_test_owner';
+  if (businessId) {
+    memoryMembershipRegistry.set(`${businessId}:${testUserId}`, {
+      role: 'owner',
+      userEmail: 'whatsapp-test@example.com',
+    });
+  }
+  headers.Authorization = headers.Authorization ||
+    `Bearer test_jwt:${testUserId}:whatsapp-test@example.com:owner:${businessId || 'no_business'}:${Math.floor(Date.now() / 1000) + 3600}`;
   const payload = options.body ? JSON.stringify(options.body) : undefined;
 
   if (payload && !headers['Content-Type']) {
