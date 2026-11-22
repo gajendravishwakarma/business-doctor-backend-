@@ -251,6 +251,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     onChange={(e) => setIndustry(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
                   >
+                    <option value="">Select industry (optional)</option>
                     {industries.map((ind) => (
                       <option key={ind} value={ind}>
                         {ind}
