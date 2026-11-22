@@ -409,7 +409,29 @@ describe('Dashboard Metrics & Data Integrity Audit', () => {
     expect(metrics.metricsEvidence.grossMargin.state).toBe('calculated');
   });
 
-  it('4. DATE & TIMEZONE SAFETY: Correctly partitions today, current month, and run rates', () => {
+  it('4. Confirmed but unpaid bookings do not inflate recognized revenue', () => {
+    const unpaidConfirmedBooking: Booking = {
+      id: 'bk_unpaid_confirmed',
+      business_id: mockBusiness.id,
+      customer_id: null,
+      customer_name: 'Test Customer',
+      service_name: 'Consultation',
+      booking_date: nowIso.split('T')[0],
+      status: 'confirmed',
+      amount: 5000,
+      payment_status: 'pending',
+      notes: '',
+      created_at: nowIso,
+    };
+    const metrics = calculateBusinessMetrics(
+      mockBusiness, [], [], [], [], [unpaidConfirmedBooking], []
+    );
+    expect(metrics.totalBookings).toBe(1);
+    expect(metrics.totalRevenue).toBe(0);
+    expect(metrics.hasSufficientRevenueData).toBe(false);
+  });
+
+  it('5. DATE & TIMEZONE SAFETY: Correctly partitions today, current month, and run rates', () => {
     const tz = 'Asia/Kolkata';
     const nowParts = getDatePartsInTimezone(new Date(), tz);
     expect(nowParts.year).toBeGreaterThanOrEqual(2025);
@@ -429,7 +451,7 @@ describe('Dashboard Metrics & Data Integrity Audit', () => {
     expect(total).toBeLessThanOrEqual(31);
   });
 
-  it('5. AI DIAGNOSIS METRIC & SOURCE GROUNDING: Guarantees affected_metric, source_data, and requires_human_approval', () => {
+  it('6. AI DIAGNOSIS METRIC & SOURCE GROUNDING: Guarantees affected_metric, source_data, and requires_human_approval', () => {
     const products: Product[] = [
       {
         id: 'p_stockout',
