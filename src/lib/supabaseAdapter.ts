@@ -188,8 +188,13 @@ export function mapBookingToDb(b: Booking, bizId: string) {
     service_id: optionalUuid(b.service_id),
     booking_start: startIso,
     booking_end: new Date(new Date(startIso).getTime() + 45 * 60000).toISOString(),
-    status: b.status || 'confirmed',
+    status: b.status || 'pending',
     source: 'website',
+    amount: Number(b.amount) || 0,
+    payment_status: b.payment_status || 'pending',
+    service_name: b.service_name || null,
+    customer_name: b.customer_name || null,
+    customer_phone: b.customer_phone || null,
     notes: b.notes || null,
   };
 }
