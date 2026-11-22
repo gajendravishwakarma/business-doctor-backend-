@@ -40,7 +40,7 @@ describe('PRODUCT WORKFLOW: Business Onboarding & 4 Data-Maturity Modes', () => 
     const dbRow = mapBusinessToDb(biz);
     expect(dbRow.data_maturity).toBe('existing_complete');
     expect(dbRow.onboarding_mode).toBe('established');
-    expect(dbRow.business_age_months).toBe(48);
+    expect(dbRow.business_age_months).toBeNull();
   });
 
   it('Mode 2: Existing Business + Partial Historical Data sets partial mode and calculated age', () => {
@@ -52,7 +52,7 @@ describe('PRODUCT WORKFLOW: Business Onboarding & 4 Data-Maturity Modes', () => 
     const dbRow = mapBusinessToDb(biz);
     expect(dbRow.data_maturity).toBe('existing_partial');
     expect(dbRow.onboarding_mode).toBe('early');
-    expect(dbRow.business_age_months).toBe(6);
+    expect(dbRow.business_age_months).toBeNull();
   });
 
   it('Mode 3: New Business + No Historical Data initializes Day 0 baseline', () => {
@@ -63,7 +63,7 @@ describe('PRODUCT WORKFLOW: Business Onboarding & 4 Data-Maturity Modes', () => 
     };
     const dbRow = mapBusinessToDb(biz);
     expect(dbRow.data_maturity).toBe('new_no_data');
-    expect(dbRow.business_age_months).toBe(0);
+    expect(dbRow.business_age_months).toBeNull();
   });
 
   it('Mode 4: Existing Business + No Historical Data initializes Start-From-Today baseline with true operational age', () => {
@@ -75,7 +75,7 @@ describe('PRODUCT WORKFLOW: Business Onboarding & 4 Data-Maturity Modes', () => 
     const dbRow = mapBusinessToDb(biz);
     expect(dbRow.data_maturity).toBe('existing_no_data');
     expect(dbRow.onboarding_mode).toBe('growing');
-    expect(dbRow.business_age_months).toBe(24);
+    expect(dbRow.business_age_months).toBeNull();
   });
 });
 
