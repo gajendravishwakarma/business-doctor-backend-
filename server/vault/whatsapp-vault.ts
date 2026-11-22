@@ -127,6 +127,12 @@ export async function storeWhatsAppCredentials(
   };
 
   const supabase = getServerSupabaseClient();
+  // Unit tests use an isolated in-memory vault when no Supabase test database is configured.
+  // This branch is impossible in production; production still requires encrypted DB persistence.
+  if (!supabase && (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true')) {
+    credentialsVault.set(businessId, saved);
+    return;
+  }
   if (!supabase) throw new Error('Supabase service-role client unavailable; refusing memory-only token storage.');
   const { error: vaultError } = await supabase.from('oauth_token_vault').upsert({
     id: `${businessId}:whatsapp_business`, business_id: businessId, provider: 'whatsapp_business',
@@ -160,6 +166,11 @@ export async function deleteWhatsAppCredentials(businessId: string): Promise<boo
   const existed = credentialsVault.has(businessId);
 
   const supabase = getServerSupabaseClient();
+  // Tests without a configured Supabase test project use the isolated in-memory vault.
+  if (!supabase && (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true')) {
+    credentialsVault.delete(businessId);
+    return existed;
+  }
   if (!supabase) throw new Error('Supabase service-role client unavailable; cannot disconnect WhatsApp securely.');
   const { error: vaultError } = await supabase.from('oauth_token_vault').delete().eq('business_id', businessId).eq('provider', 'whatsapp_business');
   if (vaultError) throw new Error('Could not delete encrypted WhatsApp token: ' + vaultError.message);
