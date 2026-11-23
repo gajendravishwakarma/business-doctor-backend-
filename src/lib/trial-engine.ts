@@ -265,6 +265,8 @@ export function generateDay2Content(
 
   const weeklyContentPlan = [
     '7-DAY CONTENT TEST PLAN — DRAFT, NOT A PERFORMANCE PROMISE',
+    'Starting editorial mix (test allocation, not a proven performance claim): 30% Craftsmanship / Behind-the-Scenes, 30% Problem-Solution Education, 25% Offer Spotlight, 15% Social Proof.',
+    'Social proof content is allowed only when genuine customer evidence and permission exist; otherwise reallocate that slot to educational content.',
     `• Day 1 — Explain one verified customer problem that ${business.name} actually solves; confirm the claim with the owner.`,
     `• Day 2 — Product/service walkthrough: ${heroProduct?.name || heroService?.name || 'Use a verified catalog item after one is added'}.`,
     '• Day 3 — Behind-the-scenes content using real footage and verifiable operating practices only.',
