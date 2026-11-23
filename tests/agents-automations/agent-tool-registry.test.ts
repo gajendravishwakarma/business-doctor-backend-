@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TOOL_DEFINITIONS, executeTool, ToolExecutionContext } from '../../src/lib/agent-tool-registry';
 import { Business, Customer, Lead, Product, Order, AgentAction } from '../../src/types/database';
+import { answerBusinessIntelligenceQuery, evaluateBookingProposals, evaluateCustomerReactivations, evaluateSalesOpportunities } from '../../src/lib/agents-engine';
 
 describe('PHASE 5: Agent Tool Registry & RBAC Isolation', () => {
   const mockBusiness: Business = {
@@ -270,6 +271,59 @@ describe('PHASE 5: Agent Tool Registry & RBAC Isolation', () => {
     expect(pnl.data.netMarginPct).toBeNull();
     expect(pnl.insufficientData).toBe(true);
     expect(pnl.insufficientDataReason).toContain('Expense records are missing');
+  });
+
+  it('BUSINESS INTELLIGENCE: Excludes unpaid orders and does not invent net profit without expenses', () => {
+    const context: any = {
+      business: mockBusiness,
+      metrics: { hasSufficientRevenueData: true, hasSufficientExpenseData: false, hasSufficientProfitData: false, totalRevenue: 1500, totalExpenses: 0, netProfit: 0 },
+      orders: [mockOrders[0], { ...mockOrders[0], id: 'ord_pending_bi', total_amount: 9000, payment_status: 'pending' }],
+      expenses: [], products: [], services: [], customers: [], leads: [], bookings: [], memory: [],
+    };
+    const answer = answerBusinessIntelligenceQuery('What is my revenue and profit?', context);
+    expect(answer.result).toContain('₹1,500');
+    expect(answer.result).toContain('net profit and profit margin cannot be calculated');
+    expect(answer.result).not.toContain('₹10,500');
+    expect(answer.groundedMetrics.verifiedRevenueRecorded).toBe(1500);
+  });
+
+  it('SALES AGENT: Does not invent a lead budget, reserved offer, or conversion guarantee', () => {
+    const lead = { ...mockLeads[0], budget: 0 };
+    const context: any = {
+      business: mockBusiness, metrics: {}, customers: [], leads: [lead], products: [],
+      services: [], orders: [], bookings: [], expenses: [], memory: [],
+    };
+    const proposals = evaluateSalesOpportunities(context);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].potentialRevenue).toBeUndefined();
+    expect(proposals[0].suggestedMessage).not.toMatch(/exclusive|complimentary|starter kit|reserved/i);
+    expect(proposals[0].reason).toContain('not a verified close probability');
+  });
+
+  it('RETENTION AGENT: Treats missing activity dates as unknown, not dormant', () => {
+    const customer = { ...mockCustomers[0], last_activity: '' };
+    const context: any = {
+      business: mockBusiness, metrics: {}, customers: [customer], leads: [], products: [],
+      services: [], orders: [], bookings: [], expenses: [], memory: [],
+    };
+    expect(evaluateCustomerReactivations(context)).toHaveLength(0);
+  });
+
+  it('BOOKING AGENT: Does not invent appointment time or no-show reduction claims', () => {
+    const booking: any = {
+      id: 'booking_no_time', business_id: mockBusiness.id, customer_name: 'Test Customer',
+      customer_phone: '+919900000001', service_name: 'Consultation', booking_date: '2026-12-01',
+      status: 'confirmed', time_slot: '', booking_time: '',
+    };
+    const context: any = {
+      business: mockBusiness, metrics: {}, customers: [], leads: [], products: [],
+      services: [], orders: [], bookings: [booking], expenses: [], memory: [],
+    };
+    const proposals = evaluateBookingProposals(context);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].requestedTimeSlot).toBe('Time not recorded');
+    expect(proposals[0].reason).not.toMatch(/42%|reduces no-show/i);
+    expect(proposals[0].suggestedMessage).toContain('Time not recorded');
   });
 
   it('HITL SAFETY: Prevents execution of unapproved actions via action_execute_approved_action', async () => {
