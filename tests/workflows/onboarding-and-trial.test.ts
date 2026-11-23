@@ -310,11 +310,11 @@ describe('PRODUCT WORKFLOW: 5-Day Business Transformation Trial', () => {
   it('Day 2 marketing recommendations never invent discounts, scarcity, or conversion outcomes', () => {
     const audience = customers.map((customer, index) => ({
       ...customer,
-      status: index === 0 ? 'dormant' : 'active',
+      status: (index === 0 ? 'dormant' : 'active') as Customer['status'],
       total_orders: 1,
       total_spend: index === 0 ? 6000 : 1200,
       last_activity: '2025-01-01T00:00:00.000Z',
-    }));
+    })) as Customer[];
     const marketingLeads = [{
       id: 'lead-grounding-1', business_id: business.id, name: 'Test Prospect',
       phone: '+919900000000', source: 'website', status: 'new', budget: 5000,
