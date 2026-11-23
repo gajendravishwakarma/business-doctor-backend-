@@ -8,6 +8,7 @@ import {
   inMemoryInboundActions,
   inMemoryInboundMemories,
   inMemoryInboundLeads,
+  verifyMetaSignature,
 } from '../../server/webhooks/whatsapp';
 
 async function makeRequest(
@@ -68,6 +69,21 @@ async function makeRequest(
 }
 
 describe('Phase 6 Step 2: Real Meta WhatsApp Cloud API Webhook Backend Tests', () => {
+  it('fails closed when the Meta app secret is missing outside automated tests', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousVitest = process.env.VITEST;
+    process.env.NODE_ENV = 'production';
+    delete process.env.VITEST;
+    try {
+      expect(verifyMetaSignature('{}', 'sha256=abcd', undefined)).toBe(false);
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+      if (previousVitest === undefined) delete process.env.VITEST;
+      else process.env.VITEST = previousVitest;
+    }
+  });
+
   let server: http.Server;
   const TEST_VERIFY_TOKEN = 'secret_webhook_verify_token_prod_99';
   const TENANT_A_BIZ = 'biz_01_health_bengaluru';
