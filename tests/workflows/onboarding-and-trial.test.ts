@@ -270,6 +270,13 @@ describe('PRODUCT WORKFLOW: 5-Day Business Transformation Trial', () => {
     const reel = day2.deliverables.find((d) => d.type.includes('Reel'));
     expect(reel).toBeDefined();
     expect(reel?.content).toContain(products[0].name);
+    // Day 2 must not invent demographic research, discounts, guaranteed conversions, or scarcity.
+    const allCopy = day2.deliverables.map((d) => d.content).join('\\n');
+    expect(allCopy).not.toContain('15% VIP');
+    expect(allCopy).not.toContain('10 exclusive');
+    expect(allCopy).not.toContain('300+ organic');
+    expect(allCopy).toContain('unverified');
+    expect(day2.deliverables.every((d) => d.status === 'draft')).toBe(true);
   });
 
   it('Day 3: Generates Automate My Customers with CRM and speed-to-lead automation rules', () => {
