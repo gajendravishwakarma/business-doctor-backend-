@@ -169,14 +169,14 @@ export function generateDay1Content(
     ? [
         'HERO CATALOG UNIT ECONOMICS & MARGIN ANALYSIS:',
         ...heroProducts.map((p) => {
-          const hasPriceAndCost = Number.isFinite(Number(p.price)) && Number.isFinite(Number(p.cost)) && Number(p.price) > 0;
+          const hasPriceAndCost = p.price != null && p.cost != null && Number.isFinite(Number(p.price)) && Number.isFinite(Number(p.cost)) && Number(p.price) > 0;
           const calculatedMargin = hasPriceAndCost ? ((Number(p.price) - Number(p.cost)) / Number(p.price)) * 100 : null;
           const margin = p.margin_pct != null && Number.isFinite(Number(p.margin_pct))
             ? `${Number(p.margin_pct).toFixed(1)}% (stored)`
             : calculatedMargin !== null
               ? `${calculatedMargin.toFixed(1)}% (calculated from listed price and cost)`
               : 'Insufficient price/cost data';
-          return `• ${p.name}: Selling Price ${Number.isFinite(Number(p.price)) ? `${currency}${Number(p.price).toLocaleString('en-IN')}` : 'Unknown'} | COGS ${Number.isFinite(Number(p.cost)) ? `${currency}${Number(p.cost).toLocaleString('en-IN')}` : 'Unknown'} | Margin: ${margin} | Stock: ${p.stock_quantity ?? 'Unknown'}`;
+          return `• ${p.name}: Selling Price ${p.price != null && Number.isFinite(Number(p.price)) ? `${currency}${Number(p.price).toLocaleString('en-IN')}` : 'Unknown'} | COGS ${p.cost != null && Number.isFinite(Number(p.cost)) ? `${currency}${Number(p.cost).toLocaleString('en-IN')}` : 'Unknown'} | Margin: ${margin} | Stock: ${p.stock_quantity ?? 'Unknown'}`;
         }),
         ...(heroServices.length > 0 ? ['SERVICE PRICING PACKAGES:', ...heroServices.map((service) => `• ${service.name}: ${currency}${Number(service.price).toLocaleString('en-IN')} (${service.duration_minutes} mins)`)] : []),
         `Blended Catalog Margin: ${metrics.hasSufficientMarginData && metrics.grossMargin !== null ? `${metrics.grossMargin}%` : 'Insufficient verified product cost/price data'}`,
