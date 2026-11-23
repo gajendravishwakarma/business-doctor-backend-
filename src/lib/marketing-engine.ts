@@ -544,7 +544,7 @@ export function generateDeterministicMarketingCopy(
   const priceLine = hasPrice ? `Listed price supplied by the business: ${currSym}${price}.` : 'Current pricing has not been supplied.';
   const offerLine = offer
     ? `Promotion details supplied by the business: ${offer}.`
-    : 'No promotion details were supplied. Do not add discounts, urgency, scarcity, or special offers.';
+    : 'No promotion details were supplied.';
   const audience = targetAudience?.trim() || business.target_customers?.trim() || 'customers interested in this offering';
   const locationLine = location ? `Serving customers in ${location}.` : 'Contact the business to confirm its service area.';
   const industry = business.industry?.trim() || 'the business\'s industry';
