@@ -82,16 +82,43 @@ export function mapBusinessToDb(b: Business) {
     name: b.name,
     business_type: b.business_type || 'hybrid',
     description: b.target_customers || b.industry || 'Health and Wellness enterprise',
+    industry: b.industry || null,
+    location: b.location || null,
     website_url: b.website || null,
     phone: b.contact_phone || null,
     email: b.contact_email || null,
     country: b.country || 'India',
     timezone: b.timezone || 'Asia/Kolkata',
     currency: b.currency || 'INR',
+    currency_symbol: b.currency_symbol || (b.currency === 'INR' ? '₹' : b.currency || 'INR'),
     business_age_months: b.business_age_months ?? null,
+    business_age_stage: b.business_age_stage || 'growing',
+    data_maturity_mode: b.data_maturity_mode || 'existing_partial',
     onboarding_mode: b.business_age_stage || 'growing',
     data_maturity: b.data_maturity_mode || 'existing_partial',
     status: 'active',
+  };
+}
+
+export function mapBusinessFromDb(row: any): Partial<Business> {
+  const currency = row.currency || 'INR';
+  return {
+    id: row.id,
+    name: row.name,
+    business_type: row.business_type || 'hybrid',
+    industry: row.industry || '',
+    location: row.location || '',
+    currency,
+    currency_symbol: row.currency_symbol || (currency === 'INR' ? '₹' : currency),
+    country: row.country || 'India',
+    timezone: row.timezone || 'Asia/Kolkata',
+    target_customers: row.description || '',
+    website: row.website_url || undefined,
+    contact_phone: row.phone || undefined,
+    contact_email: row.email || undefined,
+    business_age_stage: (row.business_age_stage || row.onboarding_mode || 'growing') as Business['business_age_stage'],
+    data_maturity_mode: (row.data_maturity_mode || row.data_maturity || 'existing_partial') as Business['data_maturity_mode'],
+    business_age_months: row.business_age_months ?? undefined,
   };
 }
 
@@ -577,21 +604,7 @@ export async function pullWorkspaceFromSupabase(
     const result: any = { success: true };
 
     if (bizData) {
-      result.business = {
-        id: bizData.id,
-        name: bizData.name,
-        business_type: bizData.business_type,
-        currency: bizData.currency || 'INR',
-        country: bizData.country || 'India',
-        timezone: bizData.timezone || 'Asia/Kolkata',
-        target_customers: bizData.description || '',
-        website: bizData.website_url || undefined,
-        contact_phone: bizData.phone || undefined,
-        contact_email: bizData.email || undefined,
-        business_age_stage: (bizData.onboarding_mode as any) || 'growing',
-        data_maturity_mode: (bizData.data_maturity as any) || 'existing_partial',
-        business_age_months: bizData.business_age_months ?? undefined,
-      };
+      result.business = mapBusinessFromDb(bizData);
     }
 
     if (custRows && custRows.length > 0) {
