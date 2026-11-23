@@ -465,7 +465,7 @@ export function generateDeterministicDiagnoses(
   }
 
   // 5. INSUFFICIENT DATA DIAGNOSIS (If database lacks operational history or findings)
-  if (diagnoses.length === 0 || !metrics.hasSufficientData) {
+  if (diagnoses.length === 0 || !metrics.hasSufficientRevenueData) {
     diagnoses.push({
       id: `diag_insufficient_data_${Date.now()}`,
       business_id: business.id,
