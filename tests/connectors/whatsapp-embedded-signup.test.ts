@@ -165,7 +165,7 @@ describe('Meta WhatsApp Embedded Signup Flow & State Machine Tests', () => {
           sessionToken,
           authCode: 'AQD_META_OAUTH_CODE_XYZ123',
           wabaId: 'waba_meta_98765',
-          phoneNumberId: 'phone_meta_45678',
+          // Phone number is intentionally omitted; Meta discovery is the source of truth.
         },
       });
 
