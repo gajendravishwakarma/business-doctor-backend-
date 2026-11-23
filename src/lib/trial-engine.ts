@@ -167,12 +167,23 @@ export function generateDay1Content(
 
   const marginAuditContent = heroProducts.length > 0
     ? [
-        `HERO CATALOG UNIT ECONOMICS & MARGIN ANALYSIS:`,
-        ...heroProducts.map((p) => `• ${p.name}: Selling Price ${currency}${p.price.toLocaleString('en-IN')} | COGS ${currency}${p.cost.toLocaleString('en-IN')} | Margin: ${p.margin_pct}% | Stock: ${p.stock_quantity} units`),
-        ...(heroServices.length > 0 ? [`\nSERVICE PRICING PACKAGES:`, ...heroServices.map((s) => `• ${s.name}: ${currency}${s.price.toLocaleString('en-IN')} (${s.duration_minutes} mins)`)] : []),
-        `\nBlended Catalog Margin: ${metrics.hasSufficientMarginData && metrics.grossMargin !== null ? `${metrics.grossMargin}%` : 'Insufficient verified product cost/price data'}`, 
-      ].join('\n')
-    : `No physical product SKUs found in catalog. Create or import your product catalog to view real unit economics and margin audit.`;
+        'HERO CATALOG UNIT ECONOMICS & MARGIN ANALYSIS:',
+        ...heroProducts.map((p) => {
+          const hasPriceAndCost = Number.isFinite(Number(p.price)) && Number.isFinite(Number(p.cost)) && Number(p.price) > 0;
+          const calculatedMargin = hasPriceAndCost ? ((Number(p.price) - Number(p.cost)) / Number(p.price)) * 100 : null;
+          const margin = p.margin_pct != null && Number.isFinite(Number(p.margin_pct))
+            ? `${Number(p.margin_pct).toFixed(1)}% (stored)`
+            : calculatedMargin !== null
+              ? `${calculatedMargin.toFixed(1)}% (calculated from listed price and cost)`
+              : 'Insufficient price/cost data';
+          return `• ${p.name}: Selling Price ${Number.isFinite(Number(p.price)) ? `${currency}${Number(p.price).toLocaleString('en-IN')}` : 'Unknown'} | COGS ${Number.isFinite(Number(p.cost)) ? `${currency}${Number(p.cost).toLocaleString('en-IN')}` : 'Unknown'} | Margin: ${margin} | Stock: ${p.stock_quantity ?? 'Unknown'}`;
+        }),
+        ...(heroServices.length > 0 ? ['SERVICE PRICING PACKAGES:', ...heroServices.map((service) => `• ${service.name}: ${currency}${Number(service.price).toLocaleString('en-IN')} (${service.duration_minutes} mins)`)] : []),
+        `Blended Catalog Margin: ${metrics.hasSufficientMarginData && metrics.grossMargin !== null ? `${metrics.grossMargin}%` : 'Insufficient verified product cost/price data'}`,
+      ].join('\\n')
+    : heroServices.length > 0
+      ? ['No physical product SKUs found.', 'VERIFIED SERVICE PRICING:', ...heroServices.map((service) => `• ${service.name}: ${currency}${Number(service.price).toLocaleString('en-IN')} (${service.duration_minutes} mins)`)].join('\\n')
+      : 'No product or service catalog records are available. Add verified catalog data to audit pricing and unit economics.';
 
   const deliverables: TrialDeliverable[] = [
     {
