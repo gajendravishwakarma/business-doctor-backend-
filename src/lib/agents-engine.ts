@@ -454,7 +454,7 @@ export function evaluateBookingProposals(ctx: AgentExecutionContext): BookingAge
       customerPhone: bk.customer_phone,
       serviceName: bk.service_name,
       requestedDate: bk.booking_date,
-      requestedTimeSlot: bk.time_slot || bk.booking_time || '10:00 AM',
+      requestedTimeSlot: bookingTime,
       actionType: 'reminder_recommendation',
       reason: `Appointment is confirmed for ${bk.booking_date}. A reminder is recommended; no quantified reduction in no-shows is assumed.`,
       evidence,
