@@ -534,203 +534,157 @@ export function calculateMarketingPerformance(
 export function generateDeterministicMarketingCopy(
   prompt: MarketingContentPrompt
 ): MarketingGeneratedContent {
-  const { business, contentType, topic, targetAudience, productOrServiceName, price, offerDetails, channel } = prompt;
+  const { business, contentType, topic, targetAudience, productOrServiceName, price, offerDetails } = prompt;
   const bizName = business.name || 'Our Business';
-  const location = business.location || 'India';
+  const location = business.location || '';
   const currSym = business.currency_symbol || '₹';
-  const pName = productOrServiceName || 'our signature offering';
-  const priceDisplay = price ? `${currSym}${price}` : '';
-  const offer = offerDetails || 'Special privilege available this week only';
-  const audience = targetAudience || business.target_customers || `Discerning clients in ${location}`;
-
-  const industryStr = (business?.industry || 'wellness').toLowerCase();
-  const industryClean = (business?.industry || 'wellness').replace(/[^a-zA-Z0-9]/g, '');
-
-  const defaultHashtags = [
-    `#${bizName.replace(/[^a-zA-Z0-9]/g, '')}`,
-    `#${industryClean}`,
-    `#${location.replace(/[^a-zA-Z0-9]/g, '')}`,
-    '#AuthenticQuality',
-    '#VocalForLocal',
-  ];
+  const pName = productOrServiceName?.trim() || 'the business\'s products or services';
+  const offer = typeof offerDetails === 'string' ? offerDetails.trim() : '';
+  const hasPrice = price !== undefined && price !== null && String(price).trim() !== '' && Number(price) > 0;
+  const priceLine = hasPrice ? `Listed price supplied by the business: ${currSym}${price}.` : 'Current pricing has not been supplied.';
+  const offerLine = offer
+    ? `Promotion details supplied by the business: ${offer}.`
+    : 'No promotion details were supplied.';
+  const audience = targetAudience?.trim() || business.target_customers?.trim() || 'customers interested in this offering';
+  const locationLine = location ? `Serving customers in ${location}.` : 'Contact the business to confirm its service area.';
+  const industry = business.industry?.trim() || 'the business\'s industry';
+  const brandTag = bizName.replace(/[^a-zA-Z0-9]/g, '');
+  const industryTag = industry.replace(/[^a-zA-Z0-9]/g, '');
+  const locationTag = location.replace(/[^a-zA-Z0-9]/g, '');
+  const hashtags = [brandTag && `#${brandTag}`, industryTag && `#${industryTag}`, locationTag && `#${locationTag}`].filter(Boolean) as string[];
+  const timingRecommendation = 'Choose the posting time from connected account audience-activity analytics. No audience timing data was supplied.';
+  const groundedIn = {
+    businessName: bizName,
+    productOrService: productOrServiceName?.trim() || undefined,
+    price: hasPrice ? price : undefined,
+    offer: offer || undefined,
+    targetAudience: audience,
+  };
 
   switch (contentType) {
-    case 'whatsapp_campaign': {
+    case 'whatsapp_campaign':
       return {
         contentType,
-        title: topic || `${bizName} Exclusive WhatsApp Privilege`,
+        title: topic || `A business update from ${bizName}`,
         hooks: [
-          `Namaste {{name}}! A special update from ${bizName} in ${location} ✨`,
-          `Hi {{name}}, we have an exclusive privilege reserved for you today 🌿`,
+          `Hello {{name}}, here is an update from ${bizName}.`,
+          `Would you like details about ${pName}?`,
         ],
-        body: `Namaste {{name}},\n\nWe hope you are doing well!\n\nAt ${bizName}, we are dedicated to delivering authentic, results-driven ${industryStr} solutions to our clients in ${location}.\n\n✨ *Exclusive Privilege for You:*\n${offer}\n${priceDisplay ? `💳 Special Pricing: ${priceDisplay}\n` : ''}📍 Location: ${location}\n\nThis limited arrangement is reserved for our community.`,
-        callToAction: `Reply "YES" to this message or WhatsApp us directly at our clinic to reserve your slot.`,
+        body: `Hello {{name}},\n\nWe are sharing information about ${pName} from ${bizName}.\n\n${priceLine}\n${offerLine}\n${locationLine}\n\nReply if you would like current details, inclusions, or availability.`,
+        callToAction: 'Reply to ask the business for current details or availability.',
         hashtags: [],
-        timingRecommendation: 'Best dispatch window: Tuesday or Thursday between 11:30 AM - 1:30 PM or 6:30 PM - 8:00 PM.',
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    case 'instagram_post': {
+    case 'instagram_post':
       return {
         contentType,
-        title: topic || `Why ${bizName} is ${location}'s Trusted Choice`,
+        title: topic || `${pName}: information from ${bizName}`,
         hooks: [
-          `Stop settling for generic solutions in ${industryStr}. Here is what actually works 👇`,
-          `The secret behind ${pName} that most brands won't tell you.`,
+          `What should you know before choosing ${pName}?`,
+          `A closer look at ${pName} from ${bizName}.`,
         ],
-        body: `Quality isn't accidental—it's the result of strict standards and genuine care.\n\nAt ${bizName} (${location}), we formulate ${pName} with zero compromises.\n\n✨ Why our clients trust us:\n✔️ Verified pure ingredients & expert guidance\n✔️ Tailored for ${audience}\n✔️ Noticeable, lasting results\n\n🎁 Limited Offer: ${offer}${priceDisplay ? ` (Special Price: ${priceDisplay})` : ''}\n\nDrop a comment or DM us "CARE" to claim!`,
-        callToAction: `Click the link in our bio or send us a DM to order today.`,
-        hashtags: defaultHashtags,
-        suggestedVisual: `Clean studio shot of ${pName} on a minimalist stone or wooden surface with natural lighting and raw botanical ingredients.`,
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        body: `${bizName} — information about ${pName}.\n\nIndustry: ${industry}.\nAudience: ${audience}.\n${priceLine}\n${offerLine}\n\nFor accurate inclusions and current availability, contact ${bizName}. ${locationLine}`,
+        callToAction: 'Send a message to request verified product or service details.',
+        hashtags,
+        suggestedVisual: `A clear product or service image showing ${pName}. Add only labels, ingredients, features, or specifications confirmed by the business.`,
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    case 'facebook_post': {
+    case 'facebook_post':
       return {
         contentType,
-        title: topic || `Community Update from ${bizName}, ${location}`,
+        title: topic || `An update from ${bizName}`,
         hooks: [
-          `Attention ${location} residents: Looking for authentic ${industryStr} care?`,
-          `How ${bizName} helps ${audience} achieve real results.`,
+          `Looking for information about ${pName}?`,
+          `Here is what ${bizName} can share about its offering.`,
         ],
-        body: `Dear ${location} community,\n\nWhen it comes to your wellness and daily lifestyle, trusted authenticity matters most.\n\nAt ${bizName}, we have spent years refining ${pName} to provide true, verifiable results.\n\n🔥 This Week's Special Privilege:\n${offer}\n${priceDisplay ? `Standard Price: ${priceDisplay}\n` : ''}\n📍 Visit us at: ${location}\n📞 Direct Inquiries & WhatsApp Consultations Welcome.`,
-        callToAction: `Send us a message on Facebook or visit us in ${location} to redeem your offer.`,
-        hashtags: defaultHashtags,
-        suggestedVisual: `Founder photo or clinic entrance in ${location} with product bottles neatly displayed.`,
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        body: `Hello from ${bizName}.\n\nOffering: ${pName}.\nIndustry: ${industry}.\n${priceLine}\n${offerLine}\n${locationLine}\n\nContact the business for current details, terms, and availability.`,
+        callToAction: 'Message the business to confirm details before making a purchase or booking.',
+        hashtags,
+        suggestedVisual: `Use a current, genuine image of ${pName} or the actual service environment. Avoid unverified badges or performance claims.`,
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    case 'reel_script': {
+    case 'reel_script':
       return {
         contentType,
-        title: topic || `3 Mistakes People Make in ${business?.industry || 'wellness'} (And What to Do Instead)`,
+        title: topic || `A quick guide to ${pName}`,
         hooks: [
-          `If you live in ${location} and deal with daily stress/fatigue, watch this before buying anything else.`,
-          `Why 90% of people get ${industryStr} products completely wrong.`,
+          `Before choosing ${pName}, check these details.`,
+          `Here is a simple introduction to ${pName} from ${bizName}.`,
         ],
-        body: `Video Script Breakdown:\n\n[0-3s HOOK] Creator holds ${pName} close to camera: "Stop wasting money on products that don't deliver."\n\n[3-15s PROBLEM] "Most people struggle with generic formulations that don't address root causes for ${audience}."\n\n[15-30s SOLUTION] "Here at ${bizName} in ${location}, we handcrafted ${pName} to provide targeted results with zero fillers."\n\n[30-45s OFFER & CTA] "${offer}. Comment 'REEL' below and we'll DM you the direct checkout link!"`,
+        body: `Video outline:\n\n[0-3s HOOK] Show the actual product or service and ask: “What should you know about ${pName}?”\n\n[3-15s DETAILS] State only the business-confirmed features, inclusions, or use information.\n\n[15-30s PRICE & TERMS] ${priceLine} ${offerLine}\n\n[30-45s CTA] Invite viewers to contact ${bizName} for current details and availability.`,
+        callToAction: 'Ask the business for verified details and current availability.',
+        hashtags,
         videoScript: [
-          { timestamp: '0-3s', visual: 'High-contrast close-up of formulation/packaging with bold text overlay', audio: `Stop making this common mistake with your daily ${industryStr} routine!` },
-          { timestamp: '3-15s', visual: 'B-roll of texture, application, or clinic consultation in progress', audio: `Here is why traditional approaches fail and what genuine quality looks like.` },
-          { timestamp: '15-30s', visual: 'Founder presenting bottle with verified ingredient callouts', audio: `At ${bizName}, our formulation provides pure, unadulterated results.` },
-          { timestamp: '30-45s', visual: 'Clear CTA screen with discount code & WhatsApp link badge', audio: `${offer}. Comment REEL and we will send you the private link!` },
+          { timestamp: '0-3s', visual: `Show ${pName} clearly.`, audio: `“Considering ${pName}? Here are the details to check.”` },
+          { timestamp: '3-15s', visual: 'Show only real product, service, or process footage.', audio: `“This is ${pName} from ${bizName}. The business-confirmed details are shown on screen.”` },
+          { timestamp: '15-30s', visual: 'Display confirmed price and promotion terms only when supplied.', audio: `${priceLine} ${offerLine}` },
+          { timestamp: '30-45s', visual: 'Show business name and a clear contact method.', audio: `“Contact ${bizName} for current details and availability.”` },
         ],
-        callToAction: `Comment "REEL" or DM us for exclusive order link.`,
-        hashtags: [...defaultHashtags, '#ReelsViral', '#ShopLocalIndia'],
-        timingRecommendation: 'Upload between 7:00 PM - 9:00 PM with trending background audio.',
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    case 'short_video_hook': {
+    case 'short_video_hook':
       return {
         contentType,
-        title: topic || `5 Viral Hooks for ${pName}`,
+        title: topic || `Three questions to ask about ${pName}`,
         hooks: [
-          `Hook 1: "I tried everything in ${location} for my health until I found this one thing..."`,
-          `Hook 2: "Don't buy ${industryStr} products in 2026 until you check this label."`,
-          `Hook 3: "How 1 simple change from ${bizName} saved me hours of frustration."`,
-          `Hook 4: "The truth about ${pName} that doctors in Bengaluru recommend."`,
-          `Hook 5: "3 signs you need to switch to ${bizName} immediately."`,
+          `Three details to check before choosing ${pName}.`,
+          `What is included when you ask ${bizName} about ${pName}?`,
+          `Price, features, and availability: what to confirm about ${pName}.`,
         ],
-        body: `5 Attention-Grabbing 3-Second Hooks:\n\n1. "I tried everything in ${location} until I found ${pName} at ${bizName}."\n2. "Don't buy another ${industryStr} product until you check this key factor."\n3. "The 1 routine change that transformed our clients' results."\n4. "Why ${audience} are switching to ${bizName} this month."\n5. "3 reasons why ${offer} is selling out fast."`,
-        callToAction: `Use any of these hooks in your next 15-second Reel or Short.`,
-        hashtags: defaultHashtags,
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        body: `Short-video sequence:\n\n1. Ask what problem or need ${pName} is intended to address; do not promise outcomes.\n2. Show the business-confirmed features or inclusions.\n3. State the supplied price and promotion terms only if available.\n4. Direct viewers to ${bizName} for current information.\n\n${priceLine}\n${offerLine}`,
+        callToAction: 'Follow or message the business for confirmed product or service information.',
+        hashtags,
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    case 'promotional_copy': {
+    case 'promotional_copy':
       return {
         contentType,
-        title: topic || `${bizName} Limited-Time Promotion`,
+        title: topic || (offer ? `Business-provided offer from ${bizName}` : `Offering information from ${bizName}`),
         hooks: [
-          `Special Announcement: Exclusive Privilege at ${bizName} 🎉`,
-          `Limited Edition Access for our ${location} community.`,
+          offer ? `An update from ${bizName}: ${offer}` : `Explore the details of ${pName} from ${bizName}.`,
+          `Need current details about ${pName}? Contact ${bizName}.`,
         ],
-        body: `✨ EXCLUSIVE PROMOTIONAL PRIVILEGE ✨\n\nBusiness: ${bizName} (${location})\nOffering: ${pName}\n\n🎁 Your Special Offer:\n${offer}\n${priceDisplay ? `💎 Special Price: ${priceDisplay}\n` : ''}\nWhy Choose Us:\n🌿 100% Authentic & Verified Standards\n⭐ Dedicated Customer Care & Personal Guidance\n📍 Available in ${location}\n\n⚡ Offer valid while supplies/slots last!`,
-        callToAction: `Contact us on WhatsApp or visit our location to redeem immediately.`,
-        hashtags: defaultHashtags,
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        body: `Business: ${bizName}\nOffering: ${pName}\nIndustry: ${industry}\n${priceLine}\n${offerLine}\n${locationLine}\n\nConfirm current terms, inclusions, and availability directly with the business.`,
+        callToAction: 'Contact the business to confirm the current offer and terms.',
+        hashtags,
+        suggestedVisual: `Use a current image of ${pName}. Display a price or offer only if the business supplied and approved it.`,
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    case 'customer_reactivation': {
+    case 'customer_reactivation':
       return {
         contentType,
-        title: topic || `${bizName} VIP Client Reactivation`,
+        title: topic || `A customer update from ${bizName}`,
         hooks: [
-          `Namaste {{name}}, we miss seeing you at ${bizName}! 🌿`,
-          `A special welcome-back privilege just for you, {{name}}.`,
+          `Hello {{name}}, a quick update from ${bizName}.`,
+          `Would you like current information about ${pName}?`,
         ],
-        body: `Namaste {{name}},\n\nIt has been a while since your last visit to ${bizName} in ${location}, and we wanted to personally check in on your wellness.\n\nAs a valued patron, we would love to welcome you back with a special privilege:\n\n✨ ${offer}\n${priceDisplay ? `✨ Special Rate: ${priceDisplay}\n` : ''}📍 Location: ${location}\n\nWe would be honored to assist you with your personalized routine once again.`,
-        callToAction: `Reply to this message with "RECONNECT" to claim your welcome-back privilege.`,
+        body: `Hello {{name}},\n\nWe are sharing an update about ${pName} from ${bizName}.\n\n${priceLine}\n${offerLine}\n\nIf this is still relevant to you, reply and the team can share current details. You can opt out of future updates at any time.`,
+        callToAction: 'Reply if you would like current information, or opt out of future updates.',
         hashtags: [],
-        timingRecommendation: 'Dispatch on Wednesday or Friday afternoon for highest reactivation response.',
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        timingRecommendation,
+        groundedIn,
       };
-    }
 
-    default: {
+    default:
       return {
         contentType: 'whatsapp_campaign',
-        title: topic || `${bizName} Campaign`,
-        hooks: [`Special update from ${bizName}`],
-        body: `Hello from ${bizName} in ${location}!\n\n${offer}\n\nVisit us or reply to learn more.`,
-        callToAction: 'Contact us today.',
-        groundedIn: {
-          businessName: bizName,
-          productOrService: pName,
-          price: price || undefined,
-          offer,
-          targetAudience: audience,
-        },
+        title: topic || `A business update from ${bizName}`,
+        hooks: [`A quick update from ${bizName}.`],
+        body: `Hello from ${bizName}.\n\nOffering: ${pName}.\n${priceLine}\n${offerLine}\n${locationLine}`,
+        callToAction: 'Contact the business for current details.',
+        groundedIn,
       };
-    }
   }
 }
