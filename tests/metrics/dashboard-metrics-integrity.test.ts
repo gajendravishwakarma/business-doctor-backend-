@@ -524,4 +524,35 @@ describe('Dashboard Metrics & Data Integrity Audit', () => {
     expect(hotLeadDiag?.source_data).toContain('leads');
     expect(hotLeadDiag?.affected_metric).toContain('Lead Conversion');
   });
+  it('7. Historical revenue alone does not create a current-month run-rate forecast', () => {
+    const priorMonth = new Date();
+    priorMonth.setDate(1);
+    priorMonth.setMonth(priorMonth.getMonth() - 1);
+    priorMonth.setDate(15);
+    const historicalOrder: Order = {
+      id: 'ord_prior_month',
+      business_id: mockBusiness.id,
+      customer_id: null,
+      customer_name: 'Historical Customer',
+      total_amount: 12000,
+      tax_amount: 0,
+      discount_amount: 0,
+      order_status: 'delivered',
+      payment_status: 'paid',
+      payment_method: 'upi',
+      order_date: priorMonth.toISOString(),
+      notes: '',
+      items: [],
+      created_at: priorMonth.toISOString(),
+    };
+    const metrics = calculateBusinessMetrics(
+      mockBusiness, [historicalOrder], [], [], [], [], []
+    );
+    expect(metrics.totalRevenue).toBe(12000);
+    expect(metrics.currentMonthRevenue).toBe(0);
+    expect(metrics.hasSufficientRunRateData).toBe(false);
+    expect(metrics.targetMonthlyRunRateProgress).toBeNull();
+    expect(metrics.metricsEvidence.targetMonthlyRunRate.state).toBe('insufficient_data');
+  });
+
 });
