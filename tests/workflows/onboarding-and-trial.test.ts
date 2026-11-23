@@ -253,6 +253,9 @@ describe('PRODUCT WORKFLOW: 5-Day Business Transformation Trial', () => {
     expect(auditDeliv).toBeDefined();
     expect(auditDeliv?.content).toContain(business.name);
     expect(auditDeliv?.content).toContain('7,497');
+    const marginDeliv = day1.deliverables.find((d) => d.id === 'deliv_1_margin');
+    expect(marginDeliv?.content).toContain('70.0%');
+    expect(marginDeliv?.content).not.toContain('Blended Catalog Margin: 50%');
   });
 
   it('Day 2: Generates Bring Me Customers with tailored personas, reels, and WhatsApp copy', () => {
