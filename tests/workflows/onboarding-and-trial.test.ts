@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mapBusinessFromDb, mapBusinessToDb } from '../../src/lib/supabaseAdapter';
+import { generateMarketingRecommendations } from '../../src/lib/marketing-engine';
 import { calculateBusinessMetrics } from '../../src/lib/diagnosis-engine';
 import {
   generateDay1Content,
@@ -304,6 +305,45 @@ describe('PRODUCT WORKFLOW: 5-Day Business Transformation Trial', () => {
     expect(allCopy).toContain('30% Craftsmanship');
     expect(allCopy).toContain('25% Offer Spotlight');
     expect(day2.deliverables.every((d) => d.status === 'draft')).toBe(true);
+  });
+
+  it('Day 2 marketing recommendations never invent discounts, scarcity, or conversion outcomes', () => {
+    const audience = customers.map((customer, index) => ({
+      ...customer,
+      status: index === 0 ? 'dormant' : 'active',
+      total_orders: 1,
+      total_spend: index === 0 ? 6000 : 1200,
+      last_activity: '2025-01-01T00:00:00.000Z',
+    }));
+    const marketingLeads = [{
+      id: 'lead-grounding-1', business_id: business.id, name: 'Test Prospect',
+      phone: '+919900000000', source: 'website', status: 'new', budget: 5000,
+      created_at: new Date().toISOString(),
+    }] as Lead[];
+    const marketingServices = [{
+      id: 'service-grounding-1', business_id: business.id, name: 'Consultation',
+      price: 1000, duration_minutes: 30, status: 'active',
+      created_at: new Date().toISOString(),
+    }] as any[];
+    const marketingMetrics = calculateBusinessMetrics(
+      business, [], [], audience, marketingLeads, [], products
+    );
+    const recommendations = generateMarketingRecommendations(
+      business, marketingMetrics, audience, marketingLeads, products,
+      marketingServices, [], [], []
+    );
+
+    expect(recommendations.length).toBeGreaterThanOrEqual(5);
+    const generatedClaims = recommendations.map((recommendation) => [
+      recommendation.expectedBusinessImpact,
+      recommendation.recommendedAction,
+      recommendation.draftOffer,
+      recommendation.draftMessage,
+      recommendation.suggestedCTA,
+    ].join(' ')).join('\\n');
+    expect(generatedClaims).not.toMatch(/15%|15-20%|2\\.5x|25 additional|₹300|2 consultation slots|48 hours|Buy 2|highest-rated|Handcrafted/i);
+    expect(generatedClaims).toContain('No discount');
+    expect(generatedClaims).toContain('not forecast');
   });
 
   it('Day 3: Generates Automate My Customers with CRM and speed-to-lead automation rules', () => {
