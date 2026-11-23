@@ -551,7 +551,7 @@ export function generateDeterministicMarketingCopy(
     `#${industryClean}`,
     ...(location ? [`#${location.replace(/[^a-zA-Z0-9]/g, '')}`] : []),
     '#AuthenticQuality',
-    '#VocalForLocal',
+    '#BusinessInsights',
   ];
 
   switch (contentType) {
@@ -657,7 +657,7 @@ export function generateDeterministicMarketingCopy(
           `Hook 1: "I tried everything in ${location} for my health until I found this one thing..."`,
           `Hook 2: "Don't buy ${industryStr} products in 2026 until you check this label."`,
           `Hook 3: "How 1 simple change from ${bizName} saved me hours of frustration."`,
-          `Hook 4: "The truth about ${pName} that doctors in Bengaluru recommend."`,
+          `Hook 4: "Here are the published details to check before choosing ${pName}."`,
           `Hook 5: "3 signs you need to switch to ${bizName} immediately."`,
         ],
         body: `5 Attention-Grabbing 3-Second Hooks:\n\n1. "I tried everything in ${location} until I found ${pName} at ${bizName}."\n2. "Don't buy another ${industryStr} product until you check this key factor."\n3. "The 1 routine change that transformed our clients' results."\n4. "Why ${audience} are switching to ${bizName} this month."\n5. "3 reasons why ${offer} is selling out fast."`,
