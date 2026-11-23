@@ -389,12 +389,12 @@ export function evaluateSalesOpportunities(ctx: AgentExecutionContext): SalesOpp
       contact: lead.phone || lead.email || '',
       crmSegment: 'High Intent Inbound Lead',
       opportunityTitle: `Convert Qualified Lead: ${lead.name} (${lead.interest_product_or_service || 'Inquiry'})`,
-      reason: `Lead intent score is ${lead.score}/100. High probability of closing if followed up with an immediate package proposal.`,
+      reason: `Lead intent score is ${lead.score}/100. This is a prioritization signal, not a verified close probability.`,
       evidence,
-      confidence: 88,
-      recommendedAction: `Send structured proposal with package pricing and payment link`,
-      suggestedMessage: `Namaste ${lead.name}, based on your requirement for ${lead.interest_product_or_service || 'our offerings'}, we have reserved an exclusive intro consultation & starter kit for ${lead.budget ? formatCurrency(lead.budget, currSym) : 'you'}. Would you like us to confirm this?`,
-      potentialRevenue: lead.budget || 2500,
+      confidence: 75,
+      recommendedAction: 'Send a permission-based follow-up and share only currently verified catalog details and pricing.',
+      suggestedMessage: `Namaste ${lead.name}, thank you for your inquiry about ${lead.interest_product_or_service || business.name}. Would you like us to share the current verified details and pricing?`,
+      potentialRevenue: Number(lead.budget) > 0 ? Number(lead.budget) : undefined,
     });
   }
 
@@ -417,12 +417,12 @@ export function evaluateSalesOpportunities(ctx: AgentExecutionContext): SalesOpp
       contact: cust.phone || cust.email || '',
       crmSegment: cust.status === 'vip' ? 'VIP Tier' : 'Repeat Buyer',
       opportunityTitle: `LTV Upsell Opportunity: ${cust.name}`,
-      reason: `High historical affinity with ${cust.total_orders} orders. Prime candidate for complementary cross-sell or bulk bundle savings.`,
+      reason: `Historical relationship evidence includes ${cust.total_orders} recorded orders. Any cross-sell should use a verified, relevant catalog item and owner-approved terms.`,
       evidence,
-      confidence: 92,
-      recommendedAction: `Extend VIP privilege pass or refill reminder`,
-      suggestedMessage: `Dear ${cust.name}, as one of our most valued patrons at ${business.name}, we have prepared a complimentary wellness assessment and 15% VIP privilege on your next refill. Can we reserve this for you?`,
-      potentialRevenue: Math.round(cust.total_spend / (cust.total_orders || 1)),
+      confidence: 80,
+      recommendedAction: 'Share relevant catalog information only after confirming product fit, availability, and approved terms.',
+      suggestedMessage: `Dear ${cust.name}, thank you for choosing ${business.name}. Reply if you would like current verified information about our products or services.`,
+      potentialRevenue: undefined,
     });
   }
 
@@ -439,10 +439,11 @@ export function evaluateBookingProposals(ctx: AgentExecutionContext): BookingAge
   // A. Upcoming Confirmed Booking Reminders (Prevents No-Shows)
   const confirmedBookings = bookings.filter((b) => b.status === 'confirmed');
   for (const bk of confirmedBookings) {
+    const bookingTime = bk.time_slot || bk.booking_time || 'Time not recorded';
     const evidence: string[] = [
       `Booking Record ID: ${bk.id}`,
-      `Client: ${bk.customer_name} (Phone: ${bk.customer_phone || 'Verified on file'})`,
-      `Service: ${bk.service_name} | Date: ${bk.booking_date} at ${bk.time_slot || bk.booking_time || '10:00 AM'}`,
+      `Client: ${bk.customer_name} (Phone: ${bk.customer_phone || 'Not recorded'})`,
+      `Service: ${bk.service_name} | Date: ${bk.booking_date} at ${bookingTime}`,
       `Status: CONFIRMED in database schedule`,
     ];
 
@@ -455,12 +456,12 @@ export function evaluateBookingProposals(ctx: AgentExecutionContext): BookingAge
       requestedDate: bk.booking_date,
       requestedTimeSlot: bk.time_slot || bk.booking_time || '10:00 AM',
       actionType: 'reminder_recommendation',
-      reason: `Appointment scheduled for ${bk.booking_date}. Dispatching a 24-hour reminder reduces no-show rates by 42%.`,
+      reason: `Appointment is confirmed for ${bk.booking_date}. A reminder is recommended; no quantified reduction in no-shows is assumed.`,
       evidence,
       isSlotAvailableInDatabase: true,
       confidence: 96,
       recommendedAction: `Send 24-Hour Appointment Confirmation & Location Directions via WhatsApp`,
-      suggestedMessage: `Namaste ${bk.customer_name}! This is a gentle reminder for your ${bk.service_name} appointment at ${business.name} on ${bk.booking_date} at ${bk.time_slot || '10:00 AM'}. Our address: ${business.location}. Please reply '1' to confirm or let us know if you need to reschedule.`,
+      suggestedMessage: `Namaste ${bk.customer_name}! This is a reminder for your confirmed ${bk.service_name} appointment at ${business.name} on ${bk.booking_date} at ${bookingTime}. Our address: ${business.location || 'not recorded'}. Please reply if you need to reschedule.`,
     });
   }
 
@@ -485,15 +486,15 @@ export function evaluateBookingProposals(ctx: AgentExecutionContext): BookingAge
         customerPhone: vip.phone,
         serviceId: heroService.id,
         serviceName: heroService.name,
-        requestedDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
-        requestedTimeSlot: '11:00 AM',
+        requestedDate: 'Customer to choose',
+        requestedTimeSlot: undefined,
         actionType: 'booking_request',
-        reason: `Cross-sell verified service session to product-only VIP buyer to deepen multi-category relationship.`,
+        reason: `This is an invitation to enquire about a verified service. No appointment date or time has been selected and availability has not been checked.`,
         evidence,
-        isSlotAvailableInDatabase: true,
-        confidence: 89,
-        recommendedAction: `Invite customer for a signature ${heroService.name} session`,
-        suggestedMessage: `Hello ${vip.name}, thank you for your continued trust in ${business.name}. We would love to invite you for our signature ${heroService.name} session. Would you like us to hold an appointment slot for you this week?`,
+        isSlotAvailableInDatabase: false,
+        confidence: 75,
+        recommendedAction: `Invite the customer to enquire about ${heroService.name}; check the live schedule before confirming a slot.`,
+        suggestedMessage: `Hello ${vip.name}, thank you for your continued trust in ${business.name}. Would you like details about ${heroService.name}? Share your preferred date and time and our team will check availability before confirming.`,
       });
     }
   }
@@ -514,13 +515,12 @@ export function evaluateCustomerReactivations(ctx: AgentExecutionContext): React
 
   for (const cust of customers) {
     const custOrders = orders.filter((o) => o.customer_id === cust.id || o.customer_name === cust.name);
-    let daysSinceLast = 90;
-
-    if (cust.last_activity) {
-      daysSinceLast = Math.max(1, Math.round((now - new Date(cust.last_activity).getTime()) / MS_PER_DAY));
-    } else if (custOrders.length > 0 && custOrders[0].order_date) {
-      daysSinceLast = Math.max(1, Math.round((now - new Date(custOrders[0].order_date).getTime()) / MS_PER_DAY));
-    }
+    const lastActivity = cust.last_activity || custOrders[0]?.order_date;
+    // Missing activity timestamps are unknown, not evidence of 90 days of inactivity.
+    if (!lastActivity) continue;
+    const parsedLastActivity = new Date(lastActivity).getTime();
+    if (!Number.isFinite(parsedLastActivity)) continue;
+    const daysSinceLast = Math.max(0, Math.round((now - parsedLastActivity) / MS_PER_DAY));
 
     const isDormant = daysSinceLast >= 60 || cust.status === 'dormant';
     const isAtRisk = daysSinceLast >= 45 && daysSinceLast < 60;
@@ -548,17 +548,17 @@ export function evaluateCustomerReactivations(ctx: AgentExecutionContext): React
       let msg = '';
 
       if (statusType === 'high_value_inactive') {
-        angle = 'VIP Retention Privilege';
-        offer = 'Complimentary consultation + Free priority home delivery';
-        msg = `Namaste ${cust.name}, we have missed serving you at ${business.name}! As a token of our appreciation for your patronage, we've unlocked a complimentary wellness review and free express delivery on your next refill. Can we assist you with anything today?`;
+        angle = 'VIP Retention Check-In';
+        offer = 'No complimentary service or delivery benefit is configured. Use owner-approved catalog terms only.';
+        msg = `Namaste ${cust.name}, thank you for your continued relationship with ${business.name}. Would you like current verified information about our products or services?`;
       } else if (statusType === 'at_risk') {
-        angle = '45-Day Refill Reminder';
-        offer = '10% replenishment privilege';
-        msg = `Hi ${cust.name}, checking in from ${business.name}! If your regular supplies are running low, we'd be delighted to arrange a fresh batch for you with a 10% welcome-back privilege.`;
+        angle = 'Customer Check-In';
+        offer = 'No discount is configured. Use the current approved catalog price and terms.';
+        msg = `Hi ${cust.name}, checking in from ${business.name}. Would you like any help or updated information about your previous purchase?`;
       } else {
-        angle = 'Dormant Win-Back';
-        offer = 'Special Welcome-Back Care Package';
-        msg = `Hello ${cust.name}, it's been a while since your last visit to ${business.name}. We have updated our fresh batches and would love to welcome you back with a special gift on your next order.`;
+        angle = 'Dormant Customer Check-In';
+        offer = 'No gift or welcome-back package is configured. Do not promise an unapproved benefit.';
+        msg = `Hello ${cust.name}, we hope you are doing well. Would you like current verified details about ${business.name}?`;
       }
 
       proposals.push({
@@ -688,12 +688,26 @@ export function answerBusinessIntelligenceQuery(
   } else if (q.includes('revenue') || q.includes('profit') || q.includes('income') || q.includes('money')) {
     sources.push(`Orders Table: ${orders.length} order transactions`);
     sources.push(`Expenses Table: ${expenses.length} expense line items`);
-    const totalRev = orders.reduce((acc, o) => acc + (o.total_amount || 0), 0);
-    const totalExp = expenses.reduce((acc, e) => acc + (e.amount || 0), 0);
-    const netProfit = totalRev - totalExp;
+    const paidOrders = orders.filter((order) => order.payment_status === 'paid');
+    const totalRev = paidOrders.reduce((acc, order) => acc + (Number(order.total_amount) || 0), 0);
+    const totalExp = expenses.reduce((acc, expense) => acc + (Number(expense.amount) || 0), 0);
+    const hasRevenueEvidence = paidOrders.length > 0;
+    const hasExpenseEvidence = expenses.length > 0;
+    const hasProfitEvidence = hasRevenueEvidence && hasExpenseEvidence;
 
-    result = `Verified Total Revenue recorded across all ${orders.length} orders is ${formatCurrency(totalRev, currSym)}. Total recorded expenses are ${formatCurrency(totalExp, currSym)}, resulting in a Net Operating Balance of ${formatCurrency(netProfit, currSym)}.`;
-    breakdown = `Calculation: Total Orders (${formatCurrency(totalRev, currSym)}) - Total Expenses (${formatCurrency(totalExp, currSym)}) = Net Profit (${formatCurrency(netProfit, currSym)}). Average Order Value: ${formatCurrency(orders.length > 0 ? Math.round(totalRev / orders.length) : 0, currSym)}.`;
+    if (!hasRevenueEvidence) {
+      result = 'Verified paid revenue is unavailable. Pending, unpaid, and unverified orders are excluded from revenue.';
+      breakdown = `Insufficient revenue data: ${orders.length} order record(s) exist, but none is marked paid.`;
+      confidence = 25;
+    } else if (!hasExpenseEvidence) {
+      result = `Verified paid revenue is ${formatCurrency(totalRev, currSym)} across ${paidOrders.length} paid order(s). Expense records are missing, so net profit and profit margin cannot be calculated.`;
+      breakdown = `Paid revenue: ${formatCurrency(totalRev, currSym)}. Expenses: Insufficient Data. Net profit: not calculated. Average paid order value: ${formatCurrency(Math.round(totalRev / paidOrders.length), currSym)}.`;
+      confidence = 60;
+    } else {
+      const netProfit = totalRev - totalExp;
+      result = `Verified paid revenue across ${paidOrders.length} paid order(s) is ${formatCurrency(totalRev, currSym)}. Total recorded expenses are ${formatCurrency(totalExp, currSym)}, resulting in a net operating balance of ${formatCurrency(netProfit, currSym)}.`;
+      breakdown = `Calculation: Paid Revenue (${formatCurrency(totalRev, currSym)}) - Recorded Expenses (${formatCurrency(totalExp, currSym)}) = Net Operating Balance (${formatCurrency(netProfit, currSym)}). Average Paid Order Value: ${formatCurrency(Math.round(totalRev / paidOrders.length), currSym)}.`;
+    }
   } else if (q.includes('booking') || q.includes('appointment') || q.includes('service')) {
     sources.push(`Bookings Table: ${bookings.length} verified booking records`);
     sources.push(`Services Table: ${services.length} active service offerings`);
@@ -737,7 +751,7 @@ export function answerBusinessIntelligenceQuery(
     isHistoricalDataAvailable: isHistoricalAvailable,
     groundedMetrics: {
       totalRecordsQueried: orders.length + customers.length + leads.length + products.length + services.length + bookings.length + expenses.length + memory.length,
-      verifiedRevenueRecorded: orders.reduce((acc, o) => acc + (o.total_amount || 0), 0),
+      verifiedRevenueRecorded: orders.filter((order) => order.payment_status === 'paid').reduce((acc, order) => acc + (Number(order.total_amount) || 0), 0),
       activeCatalogCount: products.length + services.length,
     },
   };
