@@ -608,8 +608,11 @@ export async function executeTool(
 
         const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
         const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-        const netOperatingProfit = totalRevenue - totalExpenses;
-        const netMarginPct = totalRevenue > 0 ? Math.round((netOperatingProfit / totalRevenue) * 100) : 0;
+        const hasSufficientProfitData = orders.length > 0 && expenses.length > 0;
+        const netOperatingProfit = hasSufficientProfitData ? totalRevenue - totalExpenses : null;
+        const netMarginPct = hasSufficientProfitData && totalRevenue > 0
+          ? Math.round((netOperatingProfit! / totalRevenue) * 100)
+          : null;
 
         const insufficientRevenue = orders.length === 0;
         const insufficientExpense = expenses.length === 0;
@@ -639,10 +642,11 @@ export async function executeTool(
               description: `Total expenses: ${database.business.currency_symbol || '₹'}${totalExpenses}`,
             },
           ],
-          insufficientData: insufficientRevenue && insufficientExpense,
-          insufficientDataReason:
-            insufficientRevenue && insufficientExpense
-              ? 'Insufficient data: No revenue or expense transactions recorded in database.'
+          insufficientData: !hasSufficientProfitData,
+          insufficientDataReason: insufficientRevenue
+            ? 'Insufficient data: No verified paid revenue transactions are recorded.'
+            : insufficientExpense
+              ? 'Insufficient data: Expense records are missing, so net profit and margin cannot be calculated.'
               : undefined,
         };
       }

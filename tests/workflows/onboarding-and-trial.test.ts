@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mapBusinessToDb } from '../../src/lib/supabaseAdapter';
+import { mapBusinessFromDb, mapBusinessToDb } from '../../src/lib/supabaseAdapter';
+import { generateMarketingRecommendations } from '../../src/lib/marketing-engine';
 import { calculateBusinessMetrics } from '../../src/lib/diagnosis-engine';
 import {
   generateDay1Content,
@@ -41,6 +42,28 @@ describe('PRODUCT WORKFLOW: Business Onboarding & 4 Data-Maturity Modes', () => 
     expect(dbRow.data_maturity).toBe('existing_complete');
     expect(dbRow.onboarding_mode).toBe('established');
     expect(dbRow.business_age_months).toBeNull();
+  });
+
+  it('persists and restores industry, location, currency symbol, and unknown exact age', () => {
+    const dbRow = mapBusinessToDb(baseBiz);
+    expect(dbRow.industry).toBe('Healthcare & Wellness');
+    expect(dbRow.location).toBe('Indiranagar, Bangalore');
+    expect(dbRow.currency_symbol).toBe('₹');
+
+    const restored = mapBusinessFromDb({
+      ...dbRow,
+      id: baseBiz.id,
+      currency: 'INR',
+      currency_symbol: '₹',
+      industry: 'Healthcare & Wellness',
+      location: 'Indiranagar, Bangalore',
+      business_age_months: null,
+    });
+    expect(restored.industry).toBe(baseBiz.industry);
+    expect(restored.location).toBe(baseBiz.location);
+    expect(restored.currency).toBe('INR');
+    expect(restored.currency_symbol).toBe('₹');
+    expect(restored.business_age_months).toBeUndefined();
   });
 
   it('Mode 2: Existing Business + Partial Historical Data sets partial mode and calculated age', () => {
@@ -282,6 +305,45 @@ describe('PRODUCT WORKFLOW: 5-Day Business Transformation Trial', () => {
     expect(allCopy).toContain('30% Craftsmanship');
     expect(allCopy).toContain('25% Offer Spotlight');
     expect(day2.deliverables.every((d) => d.status === 'draft')).toBe(true);
+  });
+
+  it('Day 2 marketing recommendations never invent discounts, scarcity, or conversion outcomes', () => {
+    const audience = customers.map((customer, index) => ({
+      ...customer,
+      status: (index === 0 ? 'dormant' : 'active') as Customer['status'],
+      total_orders: 1,
+      total_spend: index === 0 ? 6000 : 1200,
+      last_activity: '2025-01-01T00:00:00.000Z',
+    })) as Customer[];
+    const marketingLeads = [{
+      id: 'lead-grounding-1', business_id: business.id, name: 'Test Prospect',
+      phone: '+919900000000', source: 'website', status: 'new', budget: 5000,
+      created_at: new Date().toISOString(),
+    }] as Lead[];
+    const marketingServices = [{
+      id: 'service-grounding-1', business_id: business.id, name: 'Consultation',
+      price: 1000, duration_minutes: 30, status: 'active',
+      created_at: new Date().toISOString(),
+    }] as any[];
+    const marketingMetrics = calculateBusinessMetrics(
+      business, [], [], audience, marketingLeads, [], products
+    );
+    const recommendations = generateMarketingRecommendations(
+      business, marketingMetrics, audience, marketingLeads, products,
+      marketingServices, [], [], []
+    );
+
+    expect(recommendations.length).toBeGreaterThanOrEqual(5);
+    const generatedClaims = recommendations.map((recommendation) => [
+      recommendation.expectedBusinessImpact,
+      recommendation.recommendedAction,
+      recommendation.draftOffer,
+      recommendation.draftMessage,
+      recommendation.suggestedCTA,
+    ].join(' ')).join('\\n');
+    expect(generatedClaims).not.toMatch(/15%|15-20%|2\\.5x|25 additional|₹300|2 consultation slots|48 hours|Buy 2|highest-rated|Handcrafted/i);
+    expect(generatedClaims).toContain('No discount');
+    expect(generatedClaims).toContain('not forecast');
   });
 
   it('Day 3: Generates Automate My Customers with CRM and speed-to-lead automation rules', () => {

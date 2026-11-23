@@ -165,7 +165,7 @@ describe('WhatsApp Production Readiness Hardening Test Suite', () => {
       expect(res.body.connection.provider).toBe('whatsapp_business');
     });
 
-    it('transitions to CONNECTED and provides full connection record after authorization', async () => {
+    it('rejects synthetic sandbox authorization and keeps the tenant disconnected', async () => {
       const authRes = await makeRequest(server, '/api/connectors/whatsapp/authorize', {
         method: 'POST',
         headers: { 'x-business-id': TENANT_A },
@@ -177,39 +177,26 @@ describe('WhatsApp Production Readiness Hardening Test Suite', () => {
         },
       });
 
-      expect(authRes.status).toBe(200);
-      expect(authRes.body.connection.status).toBe('CONNECTED');
+      expect(authRes.status).toBe(400);
+      expect(authRes.body.error).toBe('sandbox_connection_disabled');
+      expect(await whatsAppVault.hasCredential(TENANT_A)).toBe(false);
 
       const recordRes = await makeRequest(server, '/api/connectors/whatsapp/connection-record', {
         method: 'GET',
         headers: { 'x-business-id': TENANT_A },
       });
-
       expect(recordRes.status).toBe(200);
-      expect(recordRes.body.success).toBe(true);
-      const conn = recordRes.body.connection;
-      expect(conn.business_id).toBe(TENANT_A);
-      expect(conn.provider).toBe('whatsapp_business');
-      expect(conn.connection_status).toBe('CONNECTED');
-      expect(conn.phone_number_id).toBe('100609349424084');
-      expect(conn.waba_id).toBe('104593821039482');
-      expect(conn.capabilities).toContain('inbound_webhooks');
-      expect(conn.capabilities).toContain('outbound_messaging');
-      expect(conn.capabilities).toContain('template_messaging');
-      expect(conn.capabilities).toContain('human_in_the_loop_approvals');
-      expect(conn.last_health_check).toBeDefined();
+      expect(recordRes.body.connection.connection_status).toBe('DISCONNECTED');
     });
 
     it('transitions to DISCONNECTED when disconnected', async () => {
-      // Connect first
-      await makeRequest(server, '/api/connectors/whatsapp/authorize', {
-        method: 'POST',
-        headers: { 'x-business-id': TENANT_A },
-        body: {
-          phoneNumberId: '100609349424084',
-          accessToken: 'EAAG_SANDBOX_TOKEN',
-          isTestMode: true,
-        },
+      // Seed an isolated test tenant; synthetic direct authorization is disabled.
+      await whatsAppVault.storeCredential({
+        businessId: TENANT_A,
+        phoneNumberId: '100609349424084',
+        accessToken: 'EAAG_test_connected_fixture',
+        wabaId: '104593821039482',
+        isTestMode: true,
       });
 
       // Disconnect
@@ -246,15 +233,12 @@ describe('WhatsApp Production Readiness Hardening Test Suite', () => {
     });
 
     it('returns connected health diagnostics when active', async () => {
-      await makeRequest(server, '/api/connectors/whatsapp/authorize', {
-        method: 'POST',
-        headers: { 'x-business-id': TENANT_A },
-        body: {
-          phoneNumberId: '100609349424084',
-          accessToken: 'EAAG_SANDBOX_TOKEN',
-          wabaId: '104593821039482',
-          isTestMode: true,
-        },
+      await whatsAppVault.storeCredential({
+        businessId: TENANT_A,
+        phoneNumberId: '100609349424084',
+        accessToken: 'EAAG_test_connected_fixture',
+        wabaId: '104593821039482',
+        isTestMode: true,
       });
 
       const res = await makeRequest(server, '/api/connectors/whatsapp/webhook-health', {
@@ -270,7 +254,8 @@ describe('WhatsApp Production Readiness Hardening Test Suite', () => {
       expect(res.body.WABA).toBe('104593821039482');
       expect(res.body.phone_number_id).toBe('100609349424084');
       expect(res.body.phone_number).toBeDefined();
-      expect(res.body.webhook_verified).toBe(true);
+      // The fixture is connected but has not completed a real Meta webhook subscription.
+      expect(res.body.webhook_verified).toBe(false);
     });
   });
 
@@ -441,18 +426,16 @@ describe('WhatsApp Production Readiness Hardening Test Suite', () => {
     });
 
     it('records full audit event lifecycle for connector operations', async () => {
-      // 1. Authorize (produces connection_started and connection_completed)
-      await makeRequest(server, '/api/connectors/whatsapp/authorize', {
-        method: 'POST',
-        headers: { 'x-business-id': TENANT_A },
-        body: {
-          phoneNumberId: '100609349424084',
-          accessToken: 'EAAG_SANDBOX_TOKEN',
-          isTestMode: true,
-        },
+      // Seed a test-only connected tenant fixture. Direct sandbox authorization is intentionally disabled.
+      await whatsAppVault.storeCredential({
+        businessId: TENANT_A,
+        phoneNumberId: '100609349424084',
+        accessToken: 'EAAG_test_connected_fixture',
+        wabaId: '104593821039482',
+        isTestMode: true,
       });
 
-      // 2. Propose outbound message (produces message_proposed)
+      // 1. Propose outbound message (produces message_proposed)
       const propRes = await makeRequest(server, '/api/connectors/whatsapp/outbound/propose', {
         method: 'POST',
         headers: { 'x-business-id': TENANT_A },
@@ -492,8 +475,8 @@ describe('WhatsApp Production Readiness Hardening Test Suite', () => {
       });
 
       const actions = logsRes.body.logs.map((l: any) => l.action);
-      expect(actions).toContain('connection_started');
-      expect(actions).toContain('connection_completed');
+      // This test verifies outbound audit transitions; a real connection_completed event
+      // is covered only by the Meta Embedded Signup flow after successful asset selection.
       expect(actions).toContain('message_proposed');
       expect(actions).toContain('message_approved');
       expect(actions).toContain('message_sent');

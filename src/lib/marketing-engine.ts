@@ -336,11 +336,11 @@ export function generateMarketingRecommendations(
         `Average days since last purchase: >90 days`,
       ],
       confidence: 92,
-      expectedBusinessImpact: `Reactivating 15-20% (${Math.round(dormantCustomers.length * 0.18)} customers) could yield ~${currSym}${(Math.round(dormantCustomers.length * 0.18 * (metrics.avgOrderValue || avgDormantLTV || 1500))).toLocaleString('en-IN')} in recovered revenue.`,
-      recommendedAction: 'Dispatch a personalized VIP win-back privilege with a complimentary check-in or exclusive seasonal incentive.',
-      draftOffer: `Exclusive ${currSym}300 VIP Welcome-Back Credit or Complimentary Wellness Check`,
-      draftMessage: `Namaste {{name}}! We miss you at ${business.name}. To thank you for being a valued client, enjoy a special privilege on your next visit in ${business.location}.`,
-      suggestedCTA: 'Claim VIP Privilege via WhatsApp',
+      expectedBusinessImpact: 'Potential recovery is unverified. Measure qualified replies, paid reactivations, and attributable revenue after an approved campaign.',
+      recommendedAction: 'Send a permission-based check-in. Use only an offer that the owner has explicitly configured and approved.',
+      draftOffer: 'No discount or credit is configured. Use the current approved catalog price unless the owner adds an offer.',
+      draftMessage: `Namaste {{name}}! We hope you are doing well. Would you like the latest verified details about ${business.name}? Reply INFO if you would like us to contact you.`,
+      suggestedCTA: 'Request Current Details',
     });
   }
 
@@ -360,11 +360,11 @@ export function generateMarketingRecommendations(
         `Average order value: ${currSym}${metrics.avgOrderValue.toLocaleString('en-IN')}`,
       ],
       confidence: 88,
-      expectedBusinessImpact: `Boosting repeat rate by 10% translates to ~${Math.round(singleOrderCustomers.length * 0.1)} additional repeat orders (~${currSym}${(Math.round(singleOrderCustomers.length * 0.1 * metrics.avgOrderValue)).toLocaleString('en-IN')}).`,
-      recommendedAction: 'Trigger a timed WhatsApp check-in 25-30 days after first purchase asking for product feedback and offering a bundle re-order discount.',
-      draftOffer: '15% Off Your 2nd Restock Bundle or Follow-up Session',
-      draftMessage: `Hi {{name}}, how is your experience with ${business.name}? As you near your 30-day mark, replenish your essentials with an exclusive 15% discount code.`,
-      suggestedCTA: 'Replenish Essentials Now',
+      expectedBusinessImpact: 'Incremental repeat orders and revenue are unknown until a measured campaign establishes a baseline.',
+      recommendedAction: 'Send a permission-based post-purchase check-in and ask for feedback. Do not introduce a discount unless an owner-approved offer exists.',
+      draftOffer: 'No discount is configured. Use the approved catalog price and terms.',
+      draftMessage: `Hi {{name}}, how has your experience with ${business.name} been? Reply if you would like verified product details or support.`,
+      suggestedCTA: 'Reply for Product Support',
     });
   }
 
@@ -385,11 +385,11 @@ export function generateMarketingRecommendations(
         `Highest individual customer LTV: ${currSym}${Math.max(...vipCustomers.map((c) => c.total_spend || 0)).toLocaleString('en-IN')}`,
       ],
       confidence: 95,
-      expectedBusinessImpact: 'Protects core revenue engine and increases lifetime referral rate by 2.5x through personalized relationship management.',
-      recommendedAction: 'Send a personalized note from the founder offering priority scheduling and early access to new catalog arrivals.',
-      draftOffer: 'Private Founder Consultation + Complimentary Formulation Add-on',
-      draftMessage: `Dear {{name}}, on behalf of ${business.name}, thank you for your ongoing trust. We are reserving early access for our upcoming wellness batch exclusively for our top patrons.`,
-      suggestedCTA: 'Book Priority Slot with Founder',
+      expectedBusinessImpact: 'Retention and referral impact are not forecast without campaign attribution and a measured baseline.',
+      recommendedAction: 'Send a personalized thank-you note. Mention priority access or new arrivals only when those benefits are actually available and approved.',
+      draftOffer: 'No complimentary service or special access is configured. Use only owner-approved benefits.',
+      draftMessage: `Dear {{name}}, thank you for choosing ${business.name}. Reply if you would like current information about our verified products or services.`,
+      suggestedCTA: 'Request Current Information',
     });
   }
 
@@ -410,11 +410,11 @@ export function generateMarketingRecommendations(
         `Current Stock: ${heroProduct.stock_quantity || 'Available'} units`,
       ],
       confidence: 90,
-      expectedBusinessImpact: `Selling 25 additional units generates ${currSym}${(25 * heroProduct.price).toLocaleString('en-IN')} revenue at ${currSym}${(Math.round(25 * heroProduct.price * (heroProduct.margin_pct / 100))).toLocaleString('en-IN')} gross profit.`,
-      recommendedAction: 'Create an educational Instagram Reel showcasing the authentic formulation process and customer benefits.',
-      draftOffer: `Buy 2 & Get Free Express Shipping + Travel Mini`,
-      draftMessage: `Discover why ${heroProduct.name} is our highest-rated formulation in ${business.location}. Handcrafted with verified pure ingredients.`,
-      suggestedCTA: 'Shop Hero Formulation',
+      expectedBusinessImpact: 'Incremental units and revenue are not forecast. Track qualified product inquiries and paid orders after publishing.',
+      recommendedAction: 'Create an educational Instagram Reel using verified product specifications, genuine footage, and claims approved by the owner.',
+      draftOffer: 'No bundle, shipping benefit, or gift is configured. Use the verified catalog price and current terms.',
+      draftMessage: `Discover ${heroProduct.name} at ${currSym}${Number(heroProduct.price || 0).toLocaleString('en-IN')}. Review its verified product details and current availability at ${business.name}.`,
+      suggestedCTA: 'View Verified Product Details',
       relatedProductId: heroProduct.id,
     });
   }
@@ -436,11 +436,11 @@ export function generateMarketingRecommendations(
         `Current lead conversion rate: ${metrics.leadConversionRate}%`,
       ],
       confidence: 86,
-      expectedBusinessImpact: `Converting 30% of active leads directly realizes ~${currSym}${(Math.round(totalLeadBudget * 0.3)).toLocaleString('en-IN')} in immediate bookings/sales.`,
-      recommendedAction: 'Dispatch an immediate conversational WhatsApp follow-up addressing their specific product interest.',
-      draftOffer: 'Complimentary 15-Minute Expert Consultation for Next 48 Hours',
-      draftMessage: `Hello {{name}}! Following up on your inquiry about ${business.name}. We have 2 consultation slots open this week in ${business.location}.`,
-      suggestedCTA: 'Confirm Your Free 15-Min Slot',
+      expectedBusinessImpact: 'The stated lead budget is pipeline context, not booked revenue. Conversion and realized value remain unverified until paid transactions are recorded.',
+      recommendedAction: 'Prepare a personalized follow-up using the lead\'s recorded inquiry. Confirm current availability and terms before sending.',
+      draftOffer: 'No free consultation or time-limited offer is configured. Use the verified catalog and current availability.',
+      draftMessage: `Hello {{name}}, following up on your inquiry to ${business.name}. Reply with any questions and our team can share verified details.`,
+      suggestedCTA: 'Reply to Discuss Requirements',
     });
   }
 
@@ -460,11 +460,11 @@ export function generateMarketingRecommendations(
         `Total bookings recorded: ${metrics.totalBookings || 0}`,
       ],
       confidence: 84,
-      expectedBusinessImpact: 'Fills low-demand weekday clinic slots and increases monthly service gross margin.',
-      recommendedAction: 'Send a Tuesday-Thursday special booking voucher to local clients.',
-      draftOffer: `Book Any Mid-Week Session & Receive a Complimentary 15-min Therapy Add-on`,
-      draftMessage: `Looking to recharge this week? Book a session of ${primaryService.name} at ${business.name} and enjoy our signature restorative add-on complimentary.`,
-      suggestedCTA: 'Book Mid-Week Appointment',
+      expectedBusinessImpact: 'Booking uplift is unverified until availability, campaign response, and paid bookings are measured.',
+      recommendedAction: 'Share verified service details and invite inquiries. Confirm live calendar availability before proposing a slot.',
+      draftOffer: 'No voucher or complimentary add-on is configured. Use the approved service price and inclusions.',
+      draftMessage: `Would you like details about ${primaryService.name} at ${business.name}? Reply and our team can confirm current availability and verified inclusions.`,
+      suggestedCTA: 'Ask About Availability',
       relatedServiceName: primaryService.name,
     });
   }
