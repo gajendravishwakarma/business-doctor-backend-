@@ -153,6 +153,33 @@ export async function storeWhatsAppCredentials(
   }, { onConflict: 'business_id,provider' });
   if (vaultError) throw new Error('Could not securely save WhatsApp token: ' + vaultError.message);
 
+  // Persist the Meta asset -> business tenant mapping. Webhook routing must
+  // survive process restarts and must never depend only on the in-memory cache.
+  const { error: integrationError } = await supabase.from('business_integrations').upsert({
+    id: `${businessId}:whatsapp_business:${Boolean(saved.isTestMode)}`,
+    business_id: businessId,
+    provider: 'whatsapp_business',
+    provider_account_id: saved.phoneNumberId,
+    provider_account_name: saved.verifiedName || saved.displayPhoneNumber || 'WhatsApp Business',
+    status: 'CONNECTED',
+    scopes: ['whatsapp_business_messaging', 'whatsapp_business_management'],
+    encrypted_credential_ref: `${businessId}:whatsapp_business`,
+    phone_number_id: saved.phoneNumberId,
+    waba_id: saved.wabaId,
+    connected_at: saved.connectedAt || now,
+    last_health_check_at: saved.lastHealthCheckAt || now,
+    metadata: {
+      display_phone_number: saved.displayPhoneNumber || null,
+      quality_rating: saved.qualityRating || null,
+      webhook_subscribed: Boolean(saved.webhookSubscribed),
+    },
+    is_test_mode: Boolean(saved.isTestMode),
+    updated_at: now,
+  }, { onConflict: 'business_id,provider,is_test_mode' });
+  if (integrationError) {
+    throw new Error('WhatsApp token was encrypted, but tenant mapping could not be saved: ' + integrationError.message);
+  }
+
   credentialsVault.set(businessId, saved);
 }
 
