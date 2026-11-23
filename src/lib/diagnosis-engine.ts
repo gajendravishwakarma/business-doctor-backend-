@@ -51,7 +51,7 @@ export function calculateBusinessMetrics(
   const netProfit = totalRevenue - totalExpenses;
   const profitMargin = totalRevenue > 0 ? ((totalRevenue - totalExpenses) / totalRevenue) * 100 : 0;
   const netProfitMargin = Math.round(profitMargin * 10) / 10;
-  const hasSufficientProfitData = hasSufficientRevenueData;
+  const hasSufficientProfitData = hasSufficientRevenueData && hasSufficientExpenseData;
 
   // 3. PERIOD & TIMEZONE SAFETY AUDIT
   const todayOrders = paidOrders.filter((o) => isTodayInTimezone(o.order_date || o.created_at || '', timezone));
@@ -126,7 +126,7 @@ export function calculateBusinessMetrics(
       (customerOrderCounts.get(c.id) || 0) > 1
   ).length;
 
-  const hasSufficientRepeatData = totalCustomers > 0 && hasTransactions;
+  const hasSufficientRepeatData = totalCustomers > 0 && totalTransactionsCount > 0;
   const repeatCustomerRate = hasSufficientRepeatData
     ? Math.round((repeatCustomers / totalCustomers) * 100)
     : 0;
@@ -168,7 +168,7 @@ export function calculateBusinessMetrics(
   // 9. HEALTH SCORE (GROUNDED AUDIT ONLY — NO FAKE DEFAULT 50)
   let healthScore: number | null = null;
   let healthBand: string = 'Insufficient Data';
-  const hasSufficientHealthData = hasTransactions;
+  const hasSufficientHealthData = hasSufficientRevenueData && hasSufficientExpenseData;
 
   if (hasSufficientHealthData) {
     let score = 50;
@@ -216,7 +216,7 @@ export function calculateBusinessMetrics(
   const metricsEvidence: Record<string, MetricEvidenceInfo> = {
     totalRevenue: {
       state: hasSufficientRevenueData ? 'calculated' : 'insufficient_data',
-      source: 'orders (total_amount where payment_status = paid) + bookings (amount)',
+      source: 'orders (total_amount where payment_status = paid) + bookings (amount where payment_status = paid)',
       details: hasSufficientRevenueData
         ? `${paidOrders.length} paid order(s) (${currencySymbol}${paidOrdersTotal.toLocaleString('en-IN')}) + ${paidBookings.length} paid booking(s) (${currencySymbol}${paidBookingsTotal.toLocaleString('en-IN')})`
         : '0 paid orders or bookings recorded in database.',
@@ -254,7 +254,7 @@ export function calculateBusinessMetrics(
     },
     repeatCustomerRate: {
       state: hasSufficientRepeatData ? 'calculated' : 'insufficient_data',
-      source: 'customers (total_orders > 1 or status = repeat/vip) + orders (by customer_id)',
+      source: 'customers (total_orders/status) + paid orders (by customer_id)',
       details: hasSufficientRepeatData
         ? `${repeatCustomers} repeat customer(s) out of ${totalCustomers} total customer(s).`
         : 'Requires active customer directory and transaction history.',
