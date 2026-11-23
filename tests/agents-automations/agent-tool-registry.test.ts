@@ -250,6 +250,28 @@ describe('PHASE 5: Agent Tool Registry & RBAC Isolation', () => {
     expect(result.groundedEvidence?.length).toBeGreaterThan(0);
   });
 
+  it('FINANCIAL GROUNDING: Revenue excludes unpaid orders and P&L requires both paid revenue and expense evidence', async () => {
+    const context = createContext('owner');
+    context.database.orders = [
+      ...mockOrders,
+      { ...mockOrders[0], id: 'ord_unpaid_01', total_amount: 9000, payment_status: 'pending' },
+    ];
+    context.database.expenses = [];
+
+    const revenue = await executeTool('analytics_get_revenue_summary', { businessId: mockBusiness.id }, context);
+    expect(revenue.success).toBe(true);
+    expect(revenue.data.totalRevenue).toBe(1500);
+    expect(revenue.data.paidOrdersCount).toBe(1);
+
+    const pnl = await executeTool('analytics_get_pnl_summary', { businessId: mockBusiness.id }, context);
+    expect(pnl.success).toBe(true);
+    expect(pnl.data.totalRevenue).toBe(1500);
+    expect(pnl.data.netOperatingProfit).toBeNull();
+    expect(pnl.data.netMarginPct).toBeNull();
+    expect(pnl.insufficientData).toBe(true);
+    expect(pnl.insufficientDataReason).toContain('Expense records are missing');
+  });
+
   it('HITL SAFETY: Prevents execution of unapproved actions via action_execute_approved_action', async () => {
     const context = createContext('owner');
     const result = await executeTool(
