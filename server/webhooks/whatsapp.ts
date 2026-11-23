@@ -643,15 +643,21 @@ whatsappWebhookRouter.get(
       return res.status(400).json({ error: 'No authenticated business context found.' });
     }
 
-    // Filter in-memory events strictly by authenticated businessId
-    const tenantEvents = inMemoryWebhookEvents.filter((ev) => ev.business_id === businessId);
+    const supabase = getServerSupabaseClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('connector_webhook_events')
+        .select('*').eq('business_id', businessId).eq('provider', 'whatsapp')
+        .order('received_at', { ascending: false }).limit(50);
+      if (error) return res.status(503).json({ error: 'Could not load WhatsApp event history.' });
+      return res.json({ success: true, businessId, total: data?.length || 0, events: data || [] });
+    }
 
-    return res.json({
-      success: true,
-      businessId,
-      total: tenantEvents.length,
-      events: tenantEvents.slice(-50).reverse(),
-    });
+    // In-memory history is only a test fallback, never production storage.
+    if (process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true') {
+      return res.status(503).json({ error: 'WhatsApp event database is unavailable.' });
+    }
+    const tenantEvents = inMemoryWebhookEvents.filter((ev) => ev.business_id === businessId);
+    return res.json({ success: true, businessId, total: tenantEvents.length, events: tenantEvents.slice(-50).reverse() });
   }
 );
 
