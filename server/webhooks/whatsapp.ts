@@ -470,27 +470,72 @@ whatsappWebhookRouter.post('/', async (req: Request, res: Response) => {
             metadata: { actionId, leadId, recipientPhone: customerPhone },
           });
 
-          // Persist to Supabase asynchronously if client configured
+          // Persist the event and all generated business records. Never silently
+          // acknowledge an inbound message when durable storage has failed.
           const supabase = getServerSupabaseClient();
           if (supabase) {
-            try {
-              await supabase.from('connector_webhook_events').insert({
-                id: eventRecord.id,
-                business_id: businessId,
-                provider: 'whatsapp',
-                external_message_id: externalMessageId,
-                customer_phone: customerPhone,
-                customer_name: customerName,
-                message_type: msgType,
-                message_payload: msg,
-                metadata: eventRecord.metadata,
-                processing_status: 'processed',
-                received_at: now,
-                created_at: now,
-              });
-            } catch {
-              // Ignore async DB error in test/dev
+            const { error: eventError } = await supabase.from('connector_webhook_events').insert({
+              id: crypto.randomUUID(),
+              business_id: businessId,
+              provider: 'whatsapp',
+              external_message_id: externalMessageId,
+              customer_phone: customerPhone,
+              customer_name: customerName,
+              message_type: msgType,
+              message_payload: msg,
+              metadata: eventRecord.metadata,
+              processing_status: 'received',
+              received_at: now,
+              created_at: now,
+            });
+            if (eventError?.code === '23505') {
+              processedEventIds.add(dedupeKey);
+              processedResults.push({ externalMessageId, status: 'duplicate', businessId, ignored: true });
+              continue;
             }
+            if (eventError) {
+              return res.status(503).json({ error: 'WhatsApp event could not be saved; retry is safe.', code: 'WEBHOOK_PERSISTENCE_FAILED' });
+            }
+
+            const leadId = crypto.randomUUID();
+            const memoryId = crypto.randomUUID();
+            const actionId = crypto.randomUUID();
+            const leadWrite = await supabase.from('leads').insert({
+              id: leadId, business_id: businessId, name: customerName, phone: customerPhone,
+              source: 'WhatsApp Inbound', intent: 'WhatsApp Inquiry', status: 'new',
+              lead_score: 75, created_at: now, updated_at: now,
+            });
+            const memoryWrite = await supabase.from('business_memory').insert({
+              id: memoryId, business_id: businessId, memory_type: 'customer_interaction',
+              title: `Inbound WhatsApp Inquiry from ${customerName}`,
+              content: `Customer (${customerPhone}) messaged: "${messageText}". Meta Message ID: ${externalMessageId}`,
+              source_type: 'whatsapp_webhook', confidence: 0.95, verified: false, created_at: now, updated_at: now,
+            });
+            const proposedDraft = draftCustomerResponse(messageText, tenant.businessName || 'Our Business');
+            const actionWrite = await supabase.from('agent_actions').insert({
+              id: actionId, business_id: businessId, agent_name: 'Customer Support Agent',
+              action_type: 'whatsapp_reply',
+              input_data: { lead_id: leadId, external_message_id: externalMessageId },
+              output_data: {
+                channel: 'WhatsApp', recipient_phone: customerPhone, recipient_name: customerName,
+                in_reply_to_message_id: externalMessageId, phone_number_id: phoneNumberId,
+                proposed_message: proposedDraft,
+                trigger_reason: 'Inbound customer WhatsApp inquiry via Webhook',
+              },
+              status: 'pending', approval_required: true, created_at: now,
+            });
+            const writeError = leadWrite.error || memoryWrite.error || actionWrite.error;
+            if (writeError) {
+              await supabase.from('connector_webhook_events')
+                .update({ processing_status: 'failed', metadata: { ...eventRecord.metadata, persistence_error: writeError.message } })
+                .eq('business_id', businessId).eq('provider', 'whatsapp').eq('external_message_id', externalMessageId);
+              return res.status(503).json({ error: 'Inbound message received but business records could not be fully saved; retry required.', code: 'WEBHOOK_RECORD_WRITE_FAILED' });
+            }
+            await supabase.from('connector_webhook_events')
+              .update({ processing_status: 'processed' })
+              .eq('business_id', businessId).eq('provider', 'whatsapp').eq('external_message_id', externalMessageId);
+          } else if (process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true') {
+            return res.status(503).json({ error: 'Webhook database is unavailable.', code: 'WEBHOOK_DATABASE_UNAVAILABLE' });
           }
 
           processedResults.push({
