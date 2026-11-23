@@ -50,7 +50,7 @@ export function calculateDataCompleteness(
   const facets = [
     {
       label: 'Business Profile',
-      complete: Boolean(business.name && business.industry && business.location && business.monthly_revenue_target),
+      complete: Boolean(business.name && business.industry && business.location),
       details: `${business.industry || 'Uncategorized'} in ${business.location || 'Location missing'}`,
     },
     {
@@ -134,7 +134,7 @@ export function generateDay1Content(
     problems.push('No inbound lead pipeline connected - growth relying on unmetered traffic');
   }
   if (problems.length === 0) {
-    problems.push('Room schedule utilization and weekday booking volume can be accelerated');
+    problems.push('No material bottleneck was identified from the available records; additional operational and channel data is needed before making a stronger claim.');
   }
 
   const highlights = [
@@ -154,7 +154,7 @@ export function generateDay1Content(
     `VERIFIED FINANCIAL & OPERATIONAL FOOTPRINT`,
     `• Total Recorded Revenue: ${metrics.hasSufficientData ? `${currency}${metrics.totalRevenue.toLocaleString('en-IN')}` : 'Insufficient verified transaction data'}`,
     `• Total Operational Expenses: ${context.expenses.length > 0 ? `${currency}${metrics.totalExpenses.toLocaleString('en-IN')}` : 'No expenses logged'}`,
-    `• Estimated Net Profit: ${metrics.hasSufficientData && context.expenses.length > 0 ? `${currency}${metrics.netProfit.toLocaleString('en-IN')} (${metrics.profitMargin}%)` : 'Pending expense reconciliation'}`,
+    `• Net Profit: ${metrics.hasSufficientProfitData && metrics.hasSufficientExpenseData ? `${currency}${metrics.netProfit.toLocaleString('en-IN')} (${metrics.profitMargin}%)` : 'Insufficient verified paid-revenue and/or expense data'}`,
     `• Customer Base: ${context.customers.length} verified contacts | Leads in Pipeline: ${context.leads.length}`,
     `• Catalog Footprint: ${context.products.length} Products, ${context.services.length} Services`,
     ``,
@@ -170,7 +170,7 @@ export function generateDay1Content(
         `HERO CATALOG UNIT ECONOMICS & MARGIN ANALYSIS:`,
         ...heroProducts.map((p) => `• ${p.name}: Selling Price ${currency}${p.price.toLocaleString('en-IN')} | COGS ${currency}${p.cost.toLocaleString('en-IN')} | Margin: ${p.margin_pct}% | Stock: ${p.stock_quantity} units`),
         ...(heroServices.length > 0 ? [`\nSERVICE PRICING PACKAGES:`, ...heroServices.map((s) => `• ${s.name}: ${currency}${s.price.toLocaleString('en-IN')} (${s.duration_minutes} mins)`)] : []),
-        `\nBlended Catalog Margin: ${metrics.grossMargin || 50}%`,
+        `\nBlended Catalog Margin: ${metrics.hasSufficientMarginData && metrics.grossMargin !== null ? `${metrics.grossMargin}%` : 'Insufficient verified product cost/price data'}`, 
       ].join('\n')
     : `No physical product SKUs found in catalog. Create or import your product catalog to view real unit economics and margin audit.`;
 
@@ -191,7 +191,7 @@ export function generateDay1Content(
       title: 'Unit Economics & Product Margin Breakdown',
       content: marginAuditContent,
       expected_outcome: 'Provides clear visibility into high-margin hero SKUs and unit contribution.',
-      confidence_score: 95,
+      confidence_score: metrics.hasSufficientMarginData ? 85 : 35,
       effort_level: 'low',
       status: 'approved',
     },
