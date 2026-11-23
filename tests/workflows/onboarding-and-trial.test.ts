@@ -279,6 +279,8 @@ describe('PRODUCT WORKFLOW: 5-Day Business Transformation Trial', () => {
     expect(allCopy).not.toContain('10 exclusive');
     expect(allCopy).not.toContain('300+ organic');
     expect(allCopy).toContain('unverified');
+    expect(allCopy).toContain('30% Craftsmanship');
+    expect(allCopy).toContain('25% Offer Spotlight');
     expect(day2.deliverables.every((d) => d.status === 'draft')).toBe(true);
   });
 
