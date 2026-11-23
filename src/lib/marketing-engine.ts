@@ -561,10 +561,10 @@ export function generateDeterministicMarketingCopy(
         title: topic || `${bizName} Exclusive WhatsApp Privilege`,
         hooks: [
           `Namaste {{name}}! A special update from ${bizName} in ${location} ✨`,
-          `Hi {{name}}, we have an exclusive privilege reserved for you today 🌿`,
+          `Hi {{name}}, here is an update from ${bizName}.`,
         ],
-        body: `Namaste {{name}},\n\nWe hope you are doing well!\n\nAt ${bizName}, we are dedicated to delivering authentic, results-driven ${industryStr} solutions to our clients in ${location}.\n\n✨ *Exclusive Privilege for You:*\n${offer}\n${priceDisplay ? `💳 Special Pricing: ${priceDisplay}\n` : ''}📍 Location: ${location}\n\nThis limited arrangement is reserved for our community.`,
-        callToAction: `Reply "YES" to this message or WhatsApp us directly at our clinic to reserve your slot.`,
+        body: `Namaste {{name}},\n\nAn update from ${bizName}.\n\nOffering: ${pName}\n${priceDisplay ? `Price: ${priceDisplay}\n` : ""}${offer ? `Offer details: ${offer}\n` : ""}${location ? `Location: ${location}\n` : ""}Reply if you would like verified details or current availability.`,
+        callToAction: `Reply to this message if you would like more information.`,
         hashtags: [],
         timingRecommendation: 'Best dispatch window: Tuesday or Thursday between 11:30 AM - 1:30 PM or 6:30 PM - 8:00 PM.',
         groundedIn: {
@@ -585,7 +585,7 @@ export function generateDeterministicMarketingCopy(
           `Stop settling for generic solutions in ${industryStr}. Here is what actually works 👇`,
           `What to check in the verified details of ${pName}.`,
         ],
-        body: `Quality isn't accidental—it's the result of strict standards and genuine care.\n\nAt ${bizName} (${location}), we formulate ${pName} with zero compromises.\n\n✨ Why our clients trust us:\n✔️ Verified pure ingredients & expert guidance\n✔️ Tailored for ${audience}\n✔️ Noticeable, lasting results\n\n🎁 Limited Offer: ${offer}${priceDisplay ? ` (Special Price: ${priceDisplay})` : ''}\n\nDrop a comment or DM us "CARE" to claim!`,
+        body: `Explore ${pName} from ${bizName}.\n\n${audience ? `For: ${audience}\n` : ""}${priceDisplay ? `Price: ${priceDisplay}\n` : ""}${offer ? `Offer details: ${offer}\n` : ""}Review the available product or service information and contact ${bizName} with your questions.`,
         callToAction: `Click the link in our bio or send us a DM to order today.`,
         hashtags: defaultHashtags,
         suggestedVisual: `Clean studio shot of ${pName} on a minimalist stone or wooden surface with natural lighting and raw botanical ingredients.`,
@@ -610,7 +610,7 @@ export function generateDeterministicMarketingCopy(
         body: `Dear ${location} community,\n\nWhen it comes to your wellness and daily lifestyle, trusted authenticity matters most.\n\nExplore ${pName} using the product or service details verified by ${bizName}.\n\n${offer ? `Current offer: ${offer}\n` : ''}${priceDisplay ? `Price: ${priceDisplay}\n` : ''}${location ? `Location: ${location}\n` : ''}Contact ${bizName} for verified details and availability.`,
         callToAction: `Send us a message on Facebook or visit us in ${location} to redeem your offer.`,
         hashtags: defaultHashtags,
-        suggestedVisual: `Founder photo or clinic entrance in ${location} with product bottles neatly displayed.`,
+        suggestedVisual: `Use an authentic photo or video of the actual product, service, team, or business location. Do not depict facilities or items that have not been verified.`,
         groundedIn: {
           businessName: bizName,
           productOrService: pName,
@@ -629,11 +629,11 @@ export function generateDeterministicMarketingCopy(
           `If you live in ${location} and deal with daily stress/fatigue, watch this before buying anything else.`,
           `A practical question to ask before choosing a ${industryStr} product.`,
         ],
-        body: `Video Script Breakdown:\n\n[0-3s HOOK] Creator holds ${pName} close to camera: "Stop wasting money on products that don't deliver."\n\n[3-15s PROBLEM] "Most people struggle with generic formulations that don't address root causes for ${audience}."\n\n[15-30s SOLUTION] "Here at ${bizName} in ${location}, we handcrafted ${pName} using only its verified product or service details."\n\n[30-45s OFFER & CTA] "${offer}. Message ${bizName} for current details about ${pName}."`,
+        body: `Video Script Breakdown:\n\n[0-3s HOOK] Show ${pName}: "What should you check before choosing this offering?"\n\n[3-15s DETAILS] "Let us review the available details of ${pName} from ${bizName}."\n\n[15-30s INFORMATION] "Here are the specifications and terms confirmed by the business."\n\n[30-45s CTA] "${offer ? `Current offer: ${offer}. ` : ""}Message ${bizName} for current details about ${pName}."`,
         videoScript: [
           { timestamp: '0-3s', visual: 'High-contrast close-up of formulation/packaging with bold text overlay', audio: `Stop making this common mistake with your daily ${industryStr} routine!` },
-          { timestamp: '3-15s', visual: 'B-roll of texture, application, or clinic consultation in progress', audio: `Here is why traditional approaches fail and what genuine quality looks like.` },
-          { timestamp: '15-30s', visual: 'Founder presenting bottle with verified ingredient callouts', audio: `At ${bizName}, our formulation provides pure, unadulterated results.` },
+          { timestamp: '3-15s', visual: 'Show verified product or service details', audio: `Review the available details and compare them with your requirements.` },
+          { timestamp: '15-30s', visual: 'Show authentic product or service footage', audio: `At ${bizName}, here are the verified details of ${pName}.` },
           { timestamp: '30-45s', visual: 'Clear CTA screen with discount code & WhatsApp link badge', audio: `${offer}. Message ${bizName} for current details.` },
         ],
         callToAction: `Comment "REEL" or DM us for exclusive order link.`,
@@ -654,13 +654,13 @@ export function generateDeterministicMarketingCopy(
         contentType,
         title: topic || `5 Viral Hooks for ${pName}`,
         hooks: [
-          `Hook 1: "I tried everything in ${location} for my health until I found this one thing..."`,
+          `Hook 1: "Here is what to know about ${pName} from ${bizName}."`,
           `Hook 2: "Don't buy ${industryStr} products in 2026 until you check this label."`,
           `Hook 3: "How 1 simple change from ${bizName} saved me hours of frustration."`,
           `Hook 4: "Here are the published details to check before choosing ${pName}."`,
           `Hook 5: "Questions to ask before choosing ${bizName}."`,
         ],
-        body: `5 Attention-Grabbing 3-Second Hooks:\n\n1. "I tried everything in ${location} until I found ${pName} at ${bizName}."\n2. "Don't buy another ${industryStr} product until you check this key factor."\n3. "The 1 routine change that transformed our clients' results."\n4. "What ${audience || 'interested customers'} should know about ${bizName}."\n5. "Ask ${bizName} about current availability and details."`,
+        body: `5 Attention-Grabbing 3-Second Hooks:\n\n1. "What should you know about ${pName}?"\n2. "Three details to review before choosing this offering."\n3. "A closer look at ${bizName} and its offering."\n4. "What ${audience || "interested customers"} should know about ${bizName}."\n5. "Ask ${bizName} about current availability and details."`,
         callToAction: `Adapt these hooks to verified business facts before publishing.`,
         hashtags: defaultHashtags,
         groundedIn: {
@@ -676,13 +676,13 @@ export function generateDeterministicMarketingCopy(
     case 'promotional_copy': {
       return {
         contentType,
-        title: topic || `${bizName} Limited-Time Promotion`,
+        title: topic || `${bizName} Offering Update`,
         hooks: [
           `An update from ${bizName}`,
           `Information about ${bizName}'s available offerings.`,
         ],
         body: `Update from ${bizName}\n\nOffering: ${pName}\n${priceDisplay ? `Price: ${priceDisplay}\n` : ''}${offer ? `Offer details: ${offer}\n` : ''}${location ? `Location: ${location}\n` : ''}\nContact the business to confirm current availability, terms and specifications.`,
-        callToAction: `Contact us on WhatsApp or visit our location to redeem immediately.`,
+        callToAction: `Contact ${bizName} to confirm current availability and terms.`,
         hashtags: defaultHashtags,
         groundedIn: {
           businessName: bizName,
@@ -699,11 +699,11 @@ export function generateDeterministicMarketingCopy(
         contentType,
         title: topic || `${bizName} VIP Client Reactivation`,
         hooks: [
-          `Namaste {{name}}, we miss seeing you at ${bizName}! 🌿`,
-          `A special welcome-back privilege just for you, {{name}}.`,
+          `Namaste {{name}}, a message from ${bizName}.`,
+          `We are sharing an update about our current offerings.`,
         ],
-        body: `Namaste {{name}},\n\nIt has been a while since your last visit to ${bizName} in ${location}, and we wanted to personally check in on your wellness.\n\nAs a valued patron, we would love to welcome you back with a special privilege:\n\n✨ ${offer}\n${priceDisplay ? `✨ Special Rate: ${priceDisplay}\n` : ''}📍 Location: ${location}\n\nWe would be honored to assist you with your personalized routine once again.`,
-        callToAction: `Reply to this message with "RECONNECT" to claim your welcome-back privilege.`,
+        body: `Namaste {{name}},\n\nHere is an update from ${bizName}.\n\n${offer ? `Current offer details: ${offer}\n` : ""}${priceDisplay ? `Price: ${priceDisplay}\n` : ""}${location ? `Location: ${location}\n` : ""}Reply if you would like current information about ${pName}.`,
+        callToAction: `Reply to this message if you would like current information.`,
         hashtags: [],
         timingRecommendation: 'Dispatch on Wednesday or Friday afternoon for highest reactivation response.',
         groundedIn: {
