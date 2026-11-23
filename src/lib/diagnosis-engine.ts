@@ -100,14 +100,9 @@ export function calculateBusinessMetrics(
     if (business.monthly_revenue_target && business.monthly_revenue_target > 0) {
       targetMonthlyRunRateProgress = Math.min(100, Math.round((currentRunRate / business.monthly_revenue_target) * 100));
     }
-  } else if (totalRevenue > 0) {
-    // If no transactions in current month yet, but historical transactions exist
-    currentRunRate = currentMonthRevenue;
-    hasSufficientRunRateData = true;
-    if (business.monthly_revenue_target && business.monthly_revenue_target > 0) {
-      targetMonthlyRunRateProgress = 0;
-    }
   }
+  // Historical revenue does not establish a current-month run rate.
+  // Keep the projection unavailable until this month's verified paid revenue exists.
 
   // 5. CUSTOMERS & RETENTION COHORTS
   const totalCustomers = customers.length;
