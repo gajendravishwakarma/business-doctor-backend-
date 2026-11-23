@@ -150,8 +150,8 @@ export function verifyMetaSignature(
   appSecret?: string
 ): boolean {
   if (!appSecret) {
-    // If no secret configured in environment, skip HMAC check
-    return true;
+    // Only automated tests may omit the secret. Production must fail closed.
+    return process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
   }
   if (!signatureHeader) {
     return false;
@@ -183,15 +183,15 @@ export function verifyMetaSignature(
 function draftCustomerResponse(messageText: string, businessName: string): string {
   const text = messageText.toLowerCase();
   if (text.includes('timing') || text.includes('hours') || text.includes('open') || text.includes('location')) {
-    return `Namaste from ${businessName}. Our center is open Monday through Saturday from 10:00 AM to 8:00 PM. Would you like to schedule an in-person or online appointment?`;
+    return `Namaste from ${businessName}. I do not have verified business hours in this chat. Our team can confirm the current timings and location for you.`;
   }
   if (text.includes('price') || text.includes('cost') || text.includes('fee') || text.includes('charges')) {
-    return `Namaste from ${businessName}. Our consultation and service rates are cataloged in our verified wellness menu. Would you like us to share our current service catalog?`;
+    return `Namaste from ${businessName}. I do not have verified current pricing in this chat. Our team can share the latest catalog and charges with you.`;
   }
   if (text.includes('booking') || text.includes('appointment') || text.includes('slot')) {
-    return `Namaste from ${businessName}. We have received your appointment request. Our operations team will check schedule availability and send you available time slots for confirmation.`;
+    return `Namaste from ${businessName}. We can help check available appointment slots. Please share your preferred date and time so our team can confirm availability.`;
   }
-  return `Namaste from ${businessName}. Thank you for contacting us. We have received your inquiry: "${messageText.slice(0, 100)}". A member of our wellness team will review and reply shortly.`;
+  return `Namaste from ${businessName}. Thank you for contacting us. We have received your inquiry: "${messageText.slice(0, 100)}". Our team will review your inquiry and reply.`;
 }
 
 export const whatsappWebhookRouter = Router();
@@ -241,10 +241,15 @@ whatsappWebhookRouter.post('/', async (req: Request, res: Response) => {
   try {
     // Optional HMAC signature check
     const appSecret = process.env.WHATSAPP_APP_SECRET;
-    if (appSecret) {
-      const signatureHeader = req.headers['x-hub-signature-256'] as string | undefined;
-      const rawBody = (req as any).rawBody || JSON.stringify(req.body);
-      if (!verifyMetaSignature(rawBody, signatureHeader, appSecret)) {
+    const signatureHeader = req.headers['x-hub-signature-256'] as string | undefined;
+    const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+    if (!appSecret && process.env.NODE_ENV === 'production') {
+      return res.status(503).json({
+        error: 'WhatsApp webhook signature verification is not configured.',
+        code: 'WEBHOOK_SIGNATURE_CONFIG_MISSING',
+      });
+    }
+    if (!verifyMetaSignature(rawBody, signatureHeader, appSecret)) {
         recordWhatsAppAudit({
           business_id: 'security_boundary',
           action: 'webhook_rejected',
@@ -256,7 +261,6 @@ whatsappWebhookRouter.post('/', async (req: Request, res: Response) => {
           error: 'Invalid Meta X-Hub-Signature-256 header. Request rejected.',
           code: 'INVALID_SIGNATURE',
         });
-      }
     }
 
     const body = req.body;
