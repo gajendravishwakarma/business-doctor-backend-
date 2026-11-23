@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapBusinessToDb } from '../../src/lib/supabaseAdapter';
+import { mapBusinessFromDb, mapBusinessToDb } from '../../src/lib/supabaseAdapter';
 import { calculateBusinessMetrics } from '../../src/lib/diagnosis-engine';
 import {
   generateDay1Content,
@@ -41,6 +41,28 @@ describe('PRODUCT WORKFLOW: Business Onboarding & 4 Data-Maturity Modes', () => 
     expect(dbRow.data_maturity).toBe('existing_complete');
     expect(dbRow.onboarding_mode).toBe('established');
     expect(dbRow.business_age_months).toBeNull();
+  });
+
+  it('persists and restores industry, location, currency symbol, and unknown exact age', () => {
+    const dbRow = mapBusinessToDb(baseBiz);
+    expect(dbRow.industry).toBe('Healthcare & Wellness');
+    expect(dbRow.location).toBe('Indiranagar, Bangalore');
+    expect(dbRow.currency_symbol).toBe('₹');
+
+    const restored = mapBusinessFromDb({
+      ...dbRow,
+      id: baseBiz.id,
+      currency: 'INR',
+      currency_symbol: '₹',
+      industry: 'Healthcare & Wellness',
+      location: 'Indiranagar, Bangalore',
+      business_age_months: null,
+    });
+    expect(restored.industry).toBe(baseBiz.industry);
+    expect(restored.location).toBe(baseBiz.location);
+    expect(restored.currency).toBe('INR');
+    expect(restored.currency_symbol).toBe('₹');
+    expect(restored.business_age_months).toBeUndefined();
   });
 
   it('Mode 2: Existing Business + Partial Historical Data sets partial mode and calculated age', () => {
