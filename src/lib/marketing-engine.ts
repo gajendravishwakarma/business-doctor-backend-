@@ -388,7 +388,7 @@ export function generateMarketingRecommendations(
       expectedBusinessImpact: 'Retention and referral impact are not forecast without campaign attribution and a measured baseline.',
       recommendedAction: 'Send a personalized thank-you note. Mention priority access or new arrivals only when those benefits are actually available and approved.',
       draftOffer: 'No complimentary service or special access is configured. Use only owner-approved benefits.',
-      draftMessage: `Dear {{name}}, thank you for choosing ${business.name}. Reply if you would like current information about our verified products or services.`,
+      draftMessage: `Hello {{name}}, thank you for connecting with ${business.name}. Reply if you would like current product or service information.`,
       suggestedCTA: 'Request Current Information',
     });
   }
@@ -536,12 +536,12 @@ export function generateDeterministicMarketingCopy(
 ): MarketingGeneratedContent {
   const { business, contentType, topic, targetAudience, productOrServiceName, price, offerDetails, channel } = prompt;
   const bizName = business.name || 'Our Business';
-  const location = business.location || 'India';
+  const location = (business.location || '').trim();
   const currSym = business.currency_symbol || '₹';
   const pName = productOrServiceName || 'our signature offering';
   const priceDisplay = price ? `${currSym}${price}` : '';
-  const offer = offerDetails || 'Special privilege available this week only';
-  const audience = targetAudience || business.target_customers || `Discerning clients in ${location}`;
+  const offer = (offerDetails || '').trim();
+  const audience = (targetAudience || business.target_customers || '').trim();
 
   const industryStr = (business?.industry || 'wellness').toLowerCase();
   const industryClean = (business?.industry || 'wellness').replace(/[^a-zA-Z0-9]/g, '');
@@ -549,7 +549,7 @@ export function generateDeterministicMarketingCopy(
   const defaultHashtags = [
     `#${bizName.replace(/[^a-zA-Z0-9]/g, '')}`,
     `#${industryClean}`,
-    `#${location.replace(/[^a-zA-Z0-9]/g, '')}`,
+    ...(location ? [`#${location.replace(/[^a-zA-Z0-9]/g, '')}`] : []),
     '#AuthenticQuality',
     '#VocalForLocal',
   ];
@@ -580,10 +580,10 @@ export function generateDeterministicMarketingCopy(
     case 'instagram_post': {
       return {
         contentType,
-        title: topic || `Why ${bizName} is ${location}'s Trusted Choice`,
+        title: topic || `Discover ${pName} from ${bizName}`,
         hooks: [
           `Stop settling for generic solutions in ${industryStr}. Here is what actually works 👇`,
-          `The secret behind ${pName} that most brands won't tell you.`,
+          `What to check in the verified details of ${pName}.`,
         ],
         body: `Quality isn't accidental—it's the result of strict standards and genuine care.\n\nAt ${bizName} (${location}), we formulate ${pName} with zero compromises.\n\n✨ Why our clients trust us:\n✔️ Verified pure ingredients & expert guidance\n✔️ Tailored for ${audience}\n✔️ Noticeable, lasting results\n\n🎁 Limited Offer: ${offer}${priceDisplay ? ` (Special Price: ${priceDisplay})` : ''}\n\nDrop a comment or DM us "CARE" to claim!`,
         callToAction: `Click the link in our bio or send us a DM to order today.`,
@@ -627,7 +627,7 @@ export function generateDeterministicMarketingCopy(
         title: topic || `3 Mistakes People Make in ${business?.industry || 'wellness'} (And What to Do Instead)`,
         hooks: [
           `If you live in ${location} and deal with daily stress/fatigue, watch this before buying anything else.`,
-          `Why 90% of people get ${industryStr} products completely wrong.`,
+          `A practical question to ask before choosing a ${industryStr} product.`,
         ],
         body: `Video Script Breakdown:\n\n[0-3s HOOK] Creator holds ${pName} close to camera: "Stop wasting money on products that don't deliver."\n\n[3-15s PROBLEM] "Most people struggle with generic formulations that don't address root causes for ${audience}."\n\n[15-30s SOLUTION] "Here at ${bizName} in ${location}, we handcrafted ${pName} to provide targeted results with zero fillers."\n\n[30-45s OFFER & CTA] "${offer}. Comment 'REEL' below and we'll DM you the direct checkout link!"`,
         videoScript: [
@@ -678,10 +678,10 @@ export function generateDeterministicMarketingCopy(
         contentType,
         title: topic || `${bizName} Limited-Time Promotion`,
         hooks: [
-          `Special Announcement: Exclusive Privilege at ${bizName} 🎉`,
-          `Limited Edition Access for our ${location} community.`,
+          `An update from ${bizName}`,
+          `Information about ${bizName}'s available offerings.`,
         ],
-        body: `✨ EXCLUSIVE PROMOTIONAL PRIVILEGE ✨\n\nBusiness: ${bizName} (${location})\nOffering: ${pName}\n\n🎁 Your Special Offer:\n${offer}\n${priceDisplay ? `💎 Special Price: ${priceDisplay}\n` : ''}\nWhy Choose Us:\n🌿 100% Authentic & Verified Standards\n⭐ Dedicated Customer Care & Personal Guidance\n📍 Available in ${location}\n\n⚡ Offer valid while supplies/slots last!`,
+        body: `Update from ${bizName}\n\nOffering: ${pName}\n${priceDisplay ? `Price: ${priceDisplay}\n` : ''}${offer ? `Offer details: ${offer}\n` : ''}${location ? `Location: ${location}\n` : ''}\nContact the business to confirm current availability, terms and specifications.`,
         callToAction: `Contact us on WhatsApp or visit our location to redeem immediately.`,
         hashtags: defaultHashtags,
         groundedIn: {
