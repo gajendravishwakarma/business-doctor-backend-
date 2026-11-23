@@ -78,6 +78,9 @@ describe('Meta WhatsApp Embedded Signup Flow & State Machine Tests', () => {
   const TENANT_B = 'biz_tenant_ayurveda_002';
 
   beforeAll(async () => {
+    // Safe, non-secret fixture values required to exercise the Embedded Signup test flow.
+    process.env.META_APP_ID = process.env.META_APP_ID || 'test_app_id_101';
+    process.env.META_WHATSAPP_CONFIG_ID = process.env.META_WHATSAPP_CONFIG_ID || 'test_config_id_101';
     server = http.createServer(app);
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', () => resolve());
