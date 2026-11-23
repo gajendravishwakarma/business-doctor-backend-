@@ -555,4 +555,32 @@ describe('Dashboard Metrics & Data Integrity Audit', () => {
     expect(metrics.metricsEvidence.targetMonthlyRunRate.state).toBe('insufficient_data');
   });
 
+  it('8. Revenue without expense records is not reported as verified net profit or health score', () => {
+    const paidOrder: Order = {
+      id: 'ord_without_expenses',
+      business_id: mockBusiness.id,
+      customer_id: null,
+      customer_name: 'Customer',
+      total_amount: 9000,
+      tax_amount: 0,
+      discount_amount: 0,
+      order_status: 'delivered',
+      payment_status: 'paid',
+      payment_method: 'upi',
+      order_date: nowIso,
+      notes: '',
+      items: [],
+      created_at: nowIso,
+    };
+    const metrics = calculateBusinessMetrics(
+      mockBusiness, [paidOrder], [], [], [], [], []
+    );
+    expect(metrics.hasSufficientRevenueData).toBe(true);
+    expect(metrics.hasSufficientExpenseData).toBe(false);
+    expect(metrics.hasSufficientProfitData).toBe(false);
+    expect(metrics.hasSufficientHealthData).toBe(false);
+    expect(metrics.healthScore).toBeNull();
+    expect(metrics.metricsEvidence.netProfit.state).toBe('insufficient_data');
+  });
+
 });
