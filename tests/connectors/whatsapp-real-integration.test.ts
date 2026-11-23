@@ -140,7 +140,7 @@ describe('Real WhatsApp Cloud API Backend & Vault Tests', () => {
       });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('business_id_required');
+      expect(res.body.code).toBe('MISSING_BUSINESS_ID');
     });
 
     it('rejects requests missing phoneNumberId or accessToken with 400', async () => {
@@ -156,7 +156,7 @@ describe('Real WhatsApp Cloud API Backend & Vault Tests', () => {
       expect(res.body.error).toBe('missing_required_credentials');
     });
 
-    it('successfully connects and registers in Sandbox Mode without calling external Meta', async () => {
+    it('rejects synthetic sandbox credentials and requires official Meta Embedded Signup', async () => {
       const res = await makeRequest(server, '/api/connectors/whatsapp/authorize', {
         method: 'POST',
         headers: { 'x-business-id': TENANT_1 },
@@ -168,14 +168,9 @@ describe('Real WhatsApp Cloud API Backend & Vault Tests', () => {
         },
       });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.isSandbox).toBe(true);
-      expect(res.body.connection.phoneNumberId).toBe('100609349424084');
-      expect(res.body.connection.qualityRating).toBe('GREEN');
-
-      // Check vault stored
-      expect(await whatsAppVault.hasCredential(TENANT_1)).toBe(true);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('sandbox_connection_disabled');
+      expect(await whatsAppVault.hasCredential(TENANT_1)).toBe(false);
     });
   });
 
