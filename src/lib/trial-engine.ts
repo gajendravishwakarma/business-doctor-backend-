@@ -231,119 +231,115 @@ export function generateDay2Content(
   context: TrialEngineContext
 ): TrialDayContent {
   const currency = business.currency_symbol || '₹';
-  const heroProd = context.products[0]?.name || 'Signature Offer';
-  const heroService = context.services[0]?.name || 'Specialist Consultation';
-  const location = business.location || 'Local Market';
+  const heroProduct = context.products.find((p) => p.status !== 'out_of_stock') || context.products[0];
+  const heroService = context.services[0];
+  const location = business.location || 'Location not provided';
+  const industry = business.industry || 'your industry';
+  const hasAudienceEvidence = context.customers.length > 0 || context.leads.length > 0;
+  const hasOfferEvidence = Boolean(heroProduct || heroService);
 
-  const highlights = [
-    `Mapped 3 targeted buyer segments in ${location} tailored for ${business.industry}`,
-    `Structured 7-day omnichannel social & broadcast growth calendar`,
-    `Generated ready-to-dispatch WhatsApp campaign & high-retention video reel scripts`,
-  ];
-
-  const targetPersonasContent = [
-    `TARGET AUDIENCE PERSONAS & DEMOGRAPHICS:`,
-    `1. Primary Persona: Discerning Wellness & Quality Seekers`,
-    `   • Demographics: Working professionals & residents in ${location} (Age 26-48).`,
-    `   • Pain Point: Lack of trustworthy, authentic ${business.industry.toLowerCase()} solutions with verified results.`,
-    `   • Preferred Channel: WhatsApp Direct Inquiries & Instagram Reels.`,
-    `   • Conversion Trigger: Personalized recommendation + complimentary initial assessment.`,
-    ``,
-    `2. Secondary Persona: High-Stress Corporate & Working Professionals`,
-    `   • Demographics: Tech & Corporate workforce in ${location}.`,
-    `   • Pain Point: Time deficit, chronic fatigue, seeking convenient weekend/evening appointments.`,
-    `   • Preferred Channel: Google Search, WhatsApp broadcasts, LinkedIn.`,
-    `   • Conversion Trigger: Fixed-slot booking guarantee + package savings.`,
-    ``,
-    `3. Tertiary Persona: Loyal Repeat Brand Advocates`,
-    `   • Demographics: Past clients and long-term customers.`,
-    `   • Opportunity: Reorder cycles every 30-45 days.`,
-    `   • Conversion Trigger: VIP replenishment discount + priority therapist/doctor access.`,
+  const personaLines = [
+    'AUDIENCE SEGMENTS — EVIDENCE AND CONFIDENCE',
+    context.customers.length > 0
+      ? `1. Existing customer audience: ${context.customers.length} customer record(s) are available. Use verified purchase history and consent status before segmentation or outreach.`
+      : '1. Existing customer audience: No customer records are available. Do not infer customer demographics or retention cohorts.',
+    context.leads.length > 0
+      ? `2. Inbound prospect audience: ${context.leads.length} lead record(s) are available. Prioritize only leads with valid contact details, a recorded source, and a permitted follow-up basis.`
+      : '2. Inbound prospect audience: No lead records are available. Acquisition audience characteristics remain unverified.',
+    `3. New audience hypothesis: People actively seeking ${industry} solutions may be relevant, but age, income, interests, channel preference, and conversion intent are unverified and must be tested before paid targeting.`,
+    '',
+    `Business context: ${business.name} | ${industry} | ${location}`,
+    'No social-platform demographic or campaign-performance data was supplied; no demographic percentages or audience sizes are claimed.',
   ].join('\n');
 
   const weeklyContentPlan = [
-    `7-DAY OMNICHANNEL GROWTH & CONTENT CALENDAR:`,
-    `• Day 1 (Educational Hook): "The 1 subtle mistake 90% of people make in ${business.industry.toLowerCase()}" [Reel / Carousel]`,
-    `• Day 2 (Client Proof / Case): Real transformation or verified benefit of ${heroProd} [Stories / WhatsApp Status]`,
-    `• Day 3 (Behind the Scenes): Sourcing pure ingredients & preparation standards at ${business.name} [Video]`,
-    `• Day 4 (VIP WhatsApp Broadcast): Exclusive privilege invite for ${heroService} [Direct WhatsApp]`,
-    `• Day 5 (Expert Q&A): Practitioner breakdown solving common client pain points [Post / Live]`,
-    `• Day 6 (Weekend Privilege): Reserve a 30-min discovery session in ${location} [Stories with Booking Link]`,
-    `• Day 7 (Community & Review Spotlight): Client testimonial breakdown + gratitude reward [Multi-channel]`,
+    '7-DAY CONTENT TEST PLAN — DRAFT, NOT A PERFORMANCE PROMISE',
+    `• Day 1 — Explain one verified customer problem that ${business.name} actually solves; confirm the claim with the owner.`,
+    `• Day 2 — Product/service walkthrough: ${heroProduct?.name || heroService?.name || 'Use a verified catalog item after one is added'}.`,
+    '• Day 3 — Behind-the-scenes content using real footage and verifiable operating practices only.',
+    '• Day 4 — Answer a frequently asked question taken from actual customer or lead conversations; if none exist, label it as a hypothesis.',
+    '• Day 5 — Explain pricing, inclusions, limitations, and availability using the current approved catalog.',
+    '• Day 6 — Publish a clear inquiry or booking CTA only if the destination link and availability have been verified.',
+    '• Day 7 — Share a customer review only with authentic source evidence and permission; otherwise publish a non-testimonial educational post.',
+    '',
+    'Measure reach, saves, qualified inquiries, response rate, and attributable conversions after publishing. Do not forecast results before baseline data exists.',
   ].join('\n');
 
+  const productName = heroProduct?.name || heroService?.name || 'the verified offer';
+  const productProof = heroProduct
+    ? `Verified catalog item: ${heroProduct.name}; listed price: ${currency}${Number(heroProduct.price || 0).toLocaleString('en-IN')}; stock status: ${heroProduct.status || 'not recorded'}.`
+    : heroService
+      ? `Verified service: ${heroService.name}; listed price: ${currency}${Number(heroService.price || 0).toLocaleString('en-IN')}.`
+      : 'No product or service catalog record is available. Add a verified offer before making product-specific claims.';
   const reelScriptContent = [
-    `INSTAGRAM / FACEBOOK HIGH-CONVERTING REEL SCRIPT:`,
-    `Topic: "Why Most Solutions Fail vs Authentic ${business.industry}"`,
-    ``,
-    `HOOK (0-3s, High Contrast Text on Screen):`,
-    `"If you're still doing this in ${location}, stop immediately."`,
-    `Visual: Practitioner/Creator speaking directly to camera while demonstrating ${heroProd}.`,
-    ``,
-    `BODY (3-20s, Educational Value):`,
-    `"Most commercial options mask symptoms without treating root causes. At ${business.name}, we formulate with 100% bio-available natural ingredients tailored to your individual constitution."`,
-    `Visual: B-roll of pure formulations, pristine clinic/store ambiance, and client consultation.`,
-    ``,
-    `CALL TO ACTION (20-30s):`,
-    `"Comment 'CARE' or tap the link in bio to receive our free consultation guide and exclusive ${currency}500 welcome voucher."`,
+    'SHORT-FORM VIDEO SCRIPT — DRAFT FOR OWNER REVIEW',
+    `Topic: How to choose a reliable ${industry} solution`,
+    '',
+    'HOOK (0–3s):',
+    `“Before choosing a ${industry} provider, check these 3 things.”`,
+    '',
+    'BODY (3–22s):',
+    `“First, understand exactly what is included. Second, compare the stated price and terms. Third, ask for evidence behind any performance claim. At ${business.name}, here is what we can verify: ${productProof}”`,
+    '',
+    'VISUALS:',
+    'Use actual product/service footage, real staff, and genuine premises. Do not use fabricated customer results, clinical claims, stock footage presented as the business, or unverified certifications.',
+    '',
+    'CTA (22–30s):',
+    `“Want details about ${productName}? Send us a message and our team will share the verified information.”`,
+    '',
+    'Claims, pricing, stock, and final CTA destination must be checked immediately before publishing.',
   ].join('\n');
 
   const whatsappCampaignContent = [
-    `WHATSAPP VIP PRIVILEGE BROADCAST (Ready to Dispatch):`,
-    ``,
-    `Hello {{name}}! 👋`,
-    ``,
-    `Greetings from ${business.name} in ${location}.`,
-    ``,
-    `We are reserving 10 exclusive client privilege slots this week for our verified ${heroService}.`,
-    ``,
-    `✨ Special Privilege Included:`,
-    `• Complimentary personalized constitution & wellness analysis`,
-    `• 15% VIP privilege credit toward your ${heroProd} package`,
-    ``,
-    `📍 Available at our ${location} center or via direct priority delivery.`,
-    ``,
-    `👉 Reply "RESERVE" or tap here to secure your preferred slot: https://${business.website || 'wa.me'}/privilege`,
+    'WHATSAPP FOLLOW-UP TEMPLATE — NOT READY FOR AUTOMATIC DISPATCH',
+    '',
+    'Hello {{customer_name}},',
+    `Thank you for your interest in ${business.name}.`,
+    `We can share verified details about ${productName} if you would like to know more.`,
+    '',
+    'Reply INFO if you would like the details, or STOP if you do not want further messages.',
+    '',
+    'Before use: send only to contacts with a valid WhatsApp opt-in and applicable approved template; verify recipient, offer, price, availability, and business contact details. Do not insert an invented discount, limited-slot claim, booking link, or testimonial.',
   ].join('\n');
 
   const deliverables: TrialDeliverable[] = [
     {
       id: 'deliv_2_personas',
       type: 'Target Audience Profile',
-      title: `3 Core Buyer Personas for ${business.industry}`,
-      content: targetPersonasContent,
-      expected_outcome: 'Pinpoints highest-converting local customer demographics for marketing spend.',
-      confidence_score: 92,
+      title: `Evidence-Based Audience Segments for ${business.name}`,
+      content: personaLines,
+      expected_outcome: 'Separates observed customer/lead records from unverified acquisition hypotheses.',
+      confidence_score: hasAudienceEvidence ? 65 : 25,
       effort_level: 'low',
-      status: 'approved',
+      status: 'draft',
     },
     {
       id: 'deliv_2_calendar',
       type: '7-Day Content Plan',
-      title: '7-Day Omnichannel Growth & Campaign Schedule',
+      title: '7-Day Omnichannel Content Test Calendar',
       content: weeklyContentPlan,
-      expected_outcome: 'Builds consistent inbound visibility across social, status, and messaging channels.',
-      confidence_score: 90,
+      expected_outcome: 'Creates a measurable content experiment; results are assessed only after real campaign data is collected.',
+      confidence_score: hasOfferEvidence ? 70 : 35,
       effort_level: 'medium',
       status: 'draft',
     },
     {
       id: 'deliv_2_reel',
       type: 'Social Video Reel Script',
-      title: `Viral Video Script: The ${business.industry} Root Cause Hook`,
+      title: `Evidence-Led ${industry} Short-Form Video`,
       content: reelScriptContent,
-      expected_outcome: 'Generates 300+ organic saves and qualified local DM inquiries.',
-      confidence_score: 88,
+      expected_outcome: 'Produces a reviewable short-form script without unsupported efficacy, customer-result, or performance claims.',
+      confidence_score: hasOfferEvidence ? 70 : 35,
       effort_level: 'medium',
       status: 'draft',
     },
     {
       id: 'deliv_2_whatsapp',
       type: 'WhatsApp Campaign Template',
-      title: 'VIP Client Privilege & Booking Broadcast Copy',
+      title: 'Permission-Based WhatsApp Inquiry Follow-Up',
       content: whatsappCampaignContent,
-      expected_outcome: 'Estimated 8-14 qualified consultation bookings per 100 broadcast contacts.',
-      confidence_score: 95,
+      expected_outcome: 'Provides compliant draft copy for eligible opted-in contacts after owner approval.',
+      confidence_score: 75,
       effort_level: 'low',
       status: 'draft',
       channel: 'whatsapp',
@@ -353,18 +349,25 @@ export function generateDay2Content(
   return {
     day: 2,
     title: 'Bring Me Customers',
-    subtitle: 'Target Audience Segments, High-Converting Content & WhatsApp Broadcasts',
+    subtitle: 'Evidence-Based Audience Segments, Content Experiments & Approval-First Outreach',
     completed: false,
     completedAt: null,
     status: 'pending',
-    highlights,
+    highlights: [
+      `Audited ${context.customers.length} customer record(s) and ${context.leads.length} lead record(s); missing audience data is explicitly marked.`,
+      'Prepared a 7-day content experiment with measurable KPIs and no guaranteed outcomes.',
+      'Drafted short-form video and opt-in WhatsApp copy for owner review before publishing or dispatch.',
+    ],
     deliverables,
     grounded_data: {
       summary: {
         target_location: location,
-        hero_product: heroProd,
-        hero_service: heroService,
-        channels: ['WhatsApp', 'Instagram', 'Google Search'],
+        hero_product: heroProduct?.name || null,
+        hero_service: heroService?.name || null,
+        channels: ['WhatsApp', 'Instagram', 'Facebook', 'YouTube'],
+        audience_evidence_available: hasAudienceEvidence,
+        offer_evidence_available: hasOfferEvidence,
+        social_analytics_available: false,
       },
     },
   };
