@@ -152,7 +152,7 @@ export function generateDay1Content(
     `• Data Sources: ${context.dataSources.map((d) => d.name).join(', ') || 'Direct Workspace Entry'}`,
     ``,
     `VERIFIED FINANCIAL & OPERATIONAL FOOTPRINT`,
-    `• Total Recorded Revenue: ${metrics.hasSufficientData ? `${currency}${metrics.totalRevenue.toLocaleString('en-IN')}` : 'Insufficient verified transaction data'}`,
+    `• Total Recorded Revenue: ${metrics.hasSufficientRevenueData ? `${currency}${metrics.totalRevenue.toLocaleString('en-IN')}` : 'Insufficient verified paid-transaction data'}`,
     `• Total Operational Expenses: ${context.expenses.length > 0 ? `${currency}${metrics.totalExpenses.toLocaleString('en-IN')}` : 'No expenses logged'}`,
     `• Net Profit: ${metrics.hasSufficientProfitData && metrics.hasSufficientExpenseData ? `${currency}${metrics.netProfit.toLocaleString('en-IN')} (${metrics.profitMargin}%)` : 'Insufficient verified paid-revenue and/or expense data'}`,
     `• Customer Base: ${context.customers.length} verified contacts | Leads in Pipeline: ${context.leads.length}`,
