@@ -691,33 +691,39 @@ whatsappWebhookRouter.get('/status', (req: Request, res: Response) => {
 whatsappWebhookRouter.post(
   '/register-tenant',
   requireAuth({ allowedRoles: ['owner', 'manager'] }),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const auth = req.auth!;
-    const { phoneNumberId, wabaId, displayPhoneNumber, businessName } = req.body;
+    const { phoneNumberId, wabaId, displayPhoneNumber, businessName } = req.body || {};
 
-    if (!phoneNumberId) {
-      return res.status(400).json({
-        error: 'Missing required field: phoneNumberId',
-        code: 'MISSING_FIELD',
-      });
+    if (typeof phoneNumberId !== 'string' || !/^\\d{5,30}$/.test(phoneNumberId) ||
+        (wabaId != null && (typeof wabaId !== 'string' || !/^\\d{5,40}$/.test(wabaId)))) {
+      return res.status(400).json({ error: 'Valid Meta phoneNumberId and optional wabaId are required.', code: 'INVALID_META_ASSET_ID' });
     }
 
     const businessId = auth.businessId!;
-    registerWhatsAppTenantMapping({
-      businessId,
-      phoneNumberId,
-      wabaId,
-      displayPhoneNumber,
-      businessName,
-    });
+    const supabase = getServerSupabaseClient();
+    if (!supabase) return res.status(503).json({ error: 'Business integration database is unavailable.', code: 'DATABASE_NOT_CONFIGURED' });
 
-    return res.json({
-      success: true,
-      message: `WhatsApp phone number ID ${phoneNumberId} successfully registered to business ${businessId}.`,
-      businessId,
-      phoneNumberId,
-      wabaId,
-    });
+    // Persist mapping so webhook routing survives restarts. This endpoint never
+    // accepts or stores access tokens; OAuth vault remains the credential path.
+    const { error } = await supabase.from('business_integrations').upsert({
+      id: `${businessId}:whatsapp_business:false`,
+      business_id: businessId,
+      provider: 'whatsapp_business',
+      provider_account_id: phoneNumberId,
+      provider_account_name: typeof businessName === 'string' ? businessName.slice(0, 120) : 'WhatsApp Business',
+      status: 'PENDING',
+      phone_number_id: phoneNumberId,
+      waba_id: wabaId || null,
+      scopes: [],
+      metadata: { display_phone_number: typeof displayPhoneNumber === 'string' ? displayPhoneNumber.slice(0, 30) : null },
+      is_test_mode: false,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'business_id,provider,is_test_mode' });
+    if (error) return res.status(503).json({ error: 'Could not persist WhatsApp tenant mapping.', code: 'TENANT_MAPPING_SAVE_FAILED' });
+
+    registerWhatsAppTenantMapping({ businessId, phoneNumberId, wabaId, displayPhoneNumber, businessName });
+    return res.json({ success: true, message: 'WhatsApp asset mapping saved. Complete secure credential connection before production messaging.', businessId, phoneNumberId, wabaId, status: 'PENDING' });
   }
 );
 
