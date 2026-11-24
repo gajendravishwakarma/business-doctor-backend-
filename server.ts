@@ -3,7 +3,7 @@ import path from "path";
 import dns from "node:dns/promises";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-import { requireAuth } from "./server/auth";
+import { getServerSupabaseClient, requireAuth } from "./server/auth";
 import { whatsappWebhookRouter } from "./server/webhooks/whatsapp";
 import { whatsappConnectorRouter } from "./server/routes/whatsapp-connector";
 import { initializeWhatsAppVault } from "./server/vault/whatsapp-vault";
@@ -1092,93 +1092,99 @@ Strict Output JSON Schema:
 // AGENT ACTION LIFECYCLE & MUTATION ENDPOINTS (HUMAN-IN-THE-LOOP STATE MACHINE)
 // ==============================================================================
 
-// Approve Proposed Action
+// Approve Proposed Action — persist the state transition in the authenticated tenant.
 app.post("/api/actions/approve", requireAuth({ allowedRoles: ["owner", "manager"] }), async (req, res) => {
   try {
-    const { actionId, actionData } = req.body;
-    if (!actionId) {
+    const { actionId } = req.body || {};
+    const auth = req.auth!;
+    if (!actionId || typeof actionId !== "string") {
       return res.status(400).json({ error: "Missing required actionId." });
     }
+    if (!auth.businessId) return res.status(400).json({ error: "Authenticated business context is required." });
+    const supabase = getServerSupabaseClient();
+    if (!supabase) return res.status(503).json({ error: "Action storage is unavailable.", code: "ACTION_STORAGE_UNAVAILABLE" });
 
-    const auth = req.auth!;
     const approvedAt = new Date().toISOString();
+    const { data, error } = await supabase.from("agent_actions")
+      .update({ status: "approved", approved_by: auth.id })
+      .eq("id", actionId)
+      .eq("business_id", auth.businessId)
+      .eq("approval_required", true)
+      .in("status", ["pending", "planned", "PROPOSED", "pending_approval"])
+      .select("id, business_id, status, approved_by")
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: "Could not persist approval.", code: "ACTION_APPROVAL_FAILED" });
+    if (!data) return res.status(409).json({ error: "Action was not found for this business, is not awaiting approval, or was already decided.", code: "ACTION_NOT_PENDING" });
 
     return res.json({
-      success: true,
-      actionId,
-      status: "approved",
-      approvedBy: auth.id,
-      approvedAt,
-      auditLog: {
-        event: "AGENT_ACTION_APPROVED",
-        description: `Action ${actionId} approved by user ${auth.email} (Role: ${auth.role})`,
-        timestamp: approvedAt,
-      },
+      success: true, actionId: data.id, status: data.status,
+      approvedBy: data.approved_by, approvedAt,
+      auditLog: { event: "AGENT_ACTION_APPROVED", timestamp: approvedAt, businessId: auth.businessId },
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to approve action" });
   }
 });
 
-// Execute Approved Action
+// Execute Approved Action — never trust a client-supplied status or payload.
+// This endpoint deliberately refuses to mark an action executed until a real
+// channel-specific executor reports a successful delivery.
 app.post("/api/actions/execute", requireAuth({ allowedRoles: ["owner", "manager"] }), async (req, res) => {
   try {
-    const { actionId, status: currentStatus, actionType, payload } = req.body;
-    if (!actionId) {
-      return res.status(400).json({ error: "Missing required actionId." });
-    }
-
-    // Strict State Machine Verification: Only APPROVED actions can be EXECUTED
-    if (currentStatus !== "approved") {
-      return res.status(403).json({
-        error: `Security Violation: Action must be in 'approved' state before execution. Current state: '${currentStatus || "proposed"}'. Unapproved agent execution is forbidden.`,
-        code: "UNAPPROVED_ACTION_EXECUTION_BLOCKED",
-      });
-    }
-
+    const { actionId } = req.body || {};
     const auth = req.auth!;
-    const executedAt = new Date().toISOString();
+    if (!actionId || typeof actionId !== "string") return res.status(400).json({ error: "Missing required actionId." });
+    if (!auth.businessId) return res.status(400).json({ error: "Authenticated business context is required." });
+    const supabase = getServerSupabaseClient();
+    if (!supabase) return res.status(503).json({ error: "Action storage is unavailable.", code: "ACTION_STORAGE_UNAVAILABLE" });
 
-    return res.json({
-      success: true,
-      actionId,
-      status: "executed",
-      executedBy: auth.id,
-      executedAt,
-      auditLog: {
-        event: "AGENT_ACTION_EXECUTED",
-        description: `Action ${actionId} (${actionType || "Autonomous Task"}) dispatched to ${payload?.channel || "System"} by ${auth.email}`,
-        timestamp: executedAt,
-      },
+    const { data, error } = await supabase.from("agent_actions")
+      .select("id, status, action_type, output_data")
+      .eq("id", actionId).eq("business_id", auth.businessId).maybeSingle();
+    if (error) return res.status(500).json({ error: "Could not verify action state." });
+    if (!data) return res.status(404).json({ error: "Action not found for this business.", code: "ACTION_NOT_FOUND" });
+    if (data.status !== "approved") return res.status(403).json({
+      error: "Only a persisted, human-approved action can be executed.",
+      code: "UNAPPROVED_ACTION_EXECUTION_BLOCKED",
+    });
+
+    return res.status(409).json({
+      error: "This action is approved, but no verified executor is registered for its action type. It remains approved and has not been marked executed.",
+      code: "ACTION_EXECUTOR_NOT_CONFIGURED",
+      actionId: data.id,
+      status: data.status,
+      actionType: data.action_type,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to execute action" });
   }
 });
 
-// Reject Proposed Action
+// Reject Proposed Action — persist rejection against the authenticated tenant.
 app.post("/api/actions/reject", requireAuth({ allowedRoles: ["owner", "manager"] }), async (req, res) => {
   try {
-    const { actionId, reason } = req.body;
-    if (!actionId) {
-      return res.status(400).json({ error: "Missing required actionId." });
-    }
-
+    const { actionId, reason } = req.body || {};
     const auth = req.auth!;
+    if (!actionId || typeof actionId !== "string") return res.status(400).json({ error: "Missing required actionId." });
+    if (!auth.businessId) return res.status(400).json({ error: "Authenticated business context is required." });
+    const supabase = getServerSupabaseClient();
+    if (!supabase) return res.status(503).json({ error: "Action storage is unavailable.", code: "ACTION_STORAGE_UNAVAILABLE" });
+
     const rejectedAt = new Date().toISOString();
+    const { data, error } = await supabase.from("agent_actions")
+      .update({ status: "rejected" })
+      .eq("id", actionId).eq("business_id", auth.businessId)
+      .eq("approval_required", true)
+      .in("status", ["pending", "planned", "PROPOSED", "pending_approval"])
+      .select("id, business_id, status")
+      .maybeSingle();
+    if (error) return res.status(500).json({ error: "Could not persist rejection.", code: "ACTION_REJECTION_FAILED" });
+    if (!data) return res.status(409).json({ error: "Action was not found for this business, is not awaiting approval, or was already decided.", code: "ACTION_NOT_PENDING" });
 
     return res.json({
-      success: true,
-      actionId,
-      status: "rejected",
-      rejectedBy: auth.id,
-      rejectedAt,
-      reason: reason || "Dismissed by operator",
-      auditLog: {
-        event: "AGENT_ACTION_REJECTED",
-        description: `Action ${actionId} rejected by ${auth.email}: ${reason || "No reason specified"}`,
-        timestamp: rejectedAt,
-      },
+      success: true, actionId: data.id, status: data.status,
+      rejectedBy: auth.id, rejectedAt, reason: typeof reason === "string" ? reason.slice(0, 500) : "Dismissed by operator",
+      auditLog: { event: "AGENT_ACTION_REJECTED", timestamp: rejectedAt, businessId: auth.businessId },
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || "Failed to reject action" });
