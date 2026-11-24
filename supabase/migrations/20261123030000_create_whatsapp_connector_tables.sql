@@ -44,28 +44,28 @@ ALTER TABLE public.connector_webhook_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Authorized members can view business integrations" ON public.business_integrations;
 CREATE POLICY "Authorized members can view business integrations"
-  ON public.business_integrations FOR SELECT
+  ON public.business_integrations FOR SELECT TO authenticated
   USING (public.is_authorized_business_member(business_id, ARRAY['owner','manager','staff','admin']));
 
 DROP POLICY IF EXISTS "Owners and managers can manage business integrations" ON public.business_integrations;
 CREATE POLICY "Owners and managers can manage business integrations"
-  ON public.business_integrations FOR ALL
+  ON public.business_integrations FOR ALL TO authenticated
   USING (public.is_authorized_business_member(business_id, ARRAY['owner','manager','admin']))
   WITH CHECK (public.is_authorized_business_member(business_id, ARRAY['owner','manager','admin']));
 
 DROP POLICY IF EXISTS "Authorized members can view webhook events" ON public.connector_webhook_events;
 CREATE POLICY "Authorized members can view webhook events"
-  ON public.connector_webhook_events FOR SELECT
+  ON public.connector_webhook_events FOR SELECT TO authenticated
   USING (public.is_authorized_business_member(business_id, ARRAY['owner','manager','staff','admin']));
 
 DROP POLICY IF EXISTS "Authorized members and service role can insert webhook events" ON public.connector_webhook_events;
 CREATE POLICY "Authorized members and service role can insert webhook events"
-  ON public.connector_webhook_events FOR INSERT
+  ON public.connector_webhook_events FOR INSERT TO authenticated
   WITH CHECK (public.is_authorized_business_member(business_id, ARRAY['owner','manager','admin']));
 
 DROP POLICY IF EXISTS "Owners and managers can update webhook events" ON public.connector_webhook_events;
 CREATE POLICY "Owners and managers can update webhook events"
-  ON public.connector_webhook_events FOR UPDATE
+  ON public.connector_webhook_events FOR UPDATE TO authenticated
   USING (public.is_authorized_business_member(business_id, ARRAY['owner','manager','admin']))
   WITH CHECK (public.is_authorized_business_member(business_id, ARRAY['owner','manager','admin']));
 
@@ -75,3 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_business_integrations_phone_lookup ON public.busi
 CREATE INDEX IF NOT EXISTS idx_business_integrations_waba_lookup ON public.business_integrations(waba_id);
 CREATE INDEX IF NOT EXISTS idx_connector_webhook_events_tenant ON public.connector_webhook_events(business_id, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_connector_webhook_events_lookup ON public.connector_webhook_events(business_id, provider, external_message_id);
+
+-- Explicit least-privilege Data API grants (Supabase no longer auto-exposes new tables).
+REVOKE ALL ON TABLE public.business_integrations FROM anon;
+REVOKE ALL ON TABLE public.connector_webhook_events FROM anon;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.business_integrations TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.connector_webhook_events TO authenticated;
